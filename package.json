@@ -1,0 +1,11 @@
+{
+  "name": "cremenality-site",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Production static website for AI Food by Cremenality.",
+  "scripts": {
+    "check": "node scripts/smoke-check.mjs",
+    "serve": "node scripts/serve.mjs"
+  }
+}

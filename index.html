@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0d0f0e">
+    <title>AI Food by Cremenality</title>
+    <meta name="description" content="AI Food: Android-приложение, единая регистрация, закрытый LLM-чат и темная веб-витрина проекта.">
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+    <link rel="preload" href="assets/hero-ai-food.png" as="image">
+    <link rel="stylesheet" href="src/styles.css">
+    <script src="config.js"></script>
+    <script type="module" src="src/main.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#home" aria-label="AI Food">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>AI Food</span>
+      </a>
+      <nav class="main-nav" aria-label="Навигация">
+        <a href="#home">Главная</a>
+        <a href="#features">Функции</a>
+        <a href="#architecture">Архитектура</a>
+        <a href="#account">Аккаунт</a>
+        <a href="#chat">Чат</a>
+        <a href="#admin" data-admin-only hidden>Admin</a>
+        <a href="#download">Android</a>
+      </nav>
+      <div class="top-actions">
+        <button class="icon-button" type="button" data-route="#account" aria-label="Аккаунт"><i data-icon="user"></i></button>
+        <button class="icon-button mobile-menu-button" type="button" data-menu-toggle aria-label="Меню"><i data-icon="menu"></i></button>
+      </div>
+    </header>
+
+    <main>
+      <section id="home" class="view active" data-view="home">
+        <div class="hero">
+          <div class="hero-copy">
+            <h1>AI Food - помощник по питанию в приложении и веб-чате</h1>
+            <p class="lead">
+              Темная веб-страница показывает возможности основного Android-приложения:
+              LLM-чат, распознавание еды по фото, КБЖУ, профиль питания и генерацию рациона.
+              Веб-чат доступен только после регистрации и подтверждения аккаунта.
+            </p>
+            <div class="hero-actions">
+              <a class="button primary" href="#account"><i data-icon="user-plus"></i>Создать аккаунт</a>
+              <a class="button secondary" href="#download"><i data-icon="download"></i>Скачать Android</a>
+            </div>
+            <div class="status-row">
+              <span class="status-pill" id="apiStatus"><span class="status-dot warning"></span>API проверяется</span>
+              <span class="status-pill"><span class="status-dot muted"></span>Единый аккаунт сайта и приложения</span>
+            </div>
+          </div>
+        </div>
+
+        <section class="section compact" aria-labelledby="homeFeaturesTitle">
+          <div class="section-heading">
+            <p class="eyebrow">Возможности приложения</p>
+            <h2 id="homeFeaturesTitle">Что пользователь получает в AI Food</h2>
+          </div>
+          <div class="feature-grid">
+            <article class="feature-card accent-green"><i data-icon="chat"></i><h3>LLM-чат</h3><p>Предустановка роли AI Food помогает отвечать про питание, рацион, продукты и ограничения.</p></article>
+            <article class="feature-card accent-amber"><i data-icon="camera"></i><h3>Фото еды</h3><p>Android-клиент отправляет фото на backend и получает блюдо, ингредиенты и быстрый рецепт.</p></article>
+            <article class="feature-card accent-cyan"><i data-icon="chart"></i><h3>КБЖУ</h3><p>Система оценивает калории, белки, жиры и углеводы для блюда или плана питания.</p></article>
+            <article class="feature-card accent-coral"><i data-icon="calendar"></i><h3>Рацион</h3><p>Meal Planner составляет план, заменяет блюда и хранит прогресс пользователя.</p></article>
+            <article class="feature-card accent-violet"><i data-icon="shield"></i><h3>Ограничения</h3><p>Аллергены, исключенные, любимые и нелюбимые продукты учитываются в ответах.</p></article>
+            <article class="feature-card accent-lime"><i data-icon="phone"></i><h3>Android</h3><p>Основной интерфейс находится в приложении, сайт дает вход, описание и веб-чат.</p></article>
+          </div>
+        </section>
+      </section>
+
+      <section id="features" class="view" data-view="features">
+        <section class="section page-title">
+          <p class="eyebrow">Функции</p>
+          <h1>Сайт представляет продукт, а приложение дает полный опыт</h1>
+          <p>Веб-часть нужна для публичного доступа, регистрации, скачивания Android и демонстрации закрытого LLM-чата.</p>
+        </section>
+        <section class="section details-grid" aria-label="Подробные функции">
+          <article class="detail-card"><span>01</span><h2>Чат после активации</h2><p>Гость видит описание проекта. Активированный пользователь получает доступ к LLM-чату.</p></article>
+          <article class="detail-card"><span>02</span><h2>Общий аккаунт</h2><p>Сайт и Android обращаются к одному backend. Email, пароль и подтверждение общие.</p></article>
+          <article class="detail-card"><span>03</span><h2>Профиль питания</h2><p>Цель, калории, аллергены и исключения используются в запросах к модели.</p></article>
+          <article class="detail-card"><span>04</span><h2>Admin-контроль</h2><p>Администратор может заблокировать или удалить учетную запись через защищенные backend endpoints.</p></article>
+        </section>
+      </section>
+
+      <section id="architecture" class="view" data-view="architecture">
+        <section class="section page-title">
+          <p class="eyebrow">Архитектура</p>
+          <h1>Production-связка сайта, приложения и AI backend</h1>
+          <p>Сайт не хранит отдельную базу пользователей. Он использует API продукта, поэтому подтвержденный аккаунт работает и в Android-приложении.</p>
+        </section>
+        <section class="section pipeline" aria-label="Схема работы">
+          <article class="pipeline-step"><i data-icon="globe"></i><h2>Сайт</h2><p>Cloudflare Pages, темная витрина, auth, download, admin и закрытый чат.</p></article>
+          <article class="pipeline-step"><i data-icon="phone"></i><h2>Android</h2><p>Основной клиент с фото, профилем, историей и планом питания.</p></article>
+          <article class="pipeline-step"><i data-icon="server"></i><h2>FastAPI</h2><p>Единые endpoints для auth, profile, chat, recognition, admin и meal planner.</p></article>
+          <article class="pipeline-step"><i data-icon="bot"></i><h2>LLM</h2><p>LLaMA 3.1 8B через Ollama и туннель при включенном ПК.</p></article>
+          <article class="pipeline-step"><i data-icon="database"></i><h2>DB</h2><p>Пользователи, роли, блокировки, профиль и планы питания хранятся на backend.</p></article>
+        </section>
+      </section>
+
+      <section id="account" class="view" data-view="account">
+        <section class="section account-layout">
+          <div class="account-copy">
+            <p class="eyebrow">Аккаунт</p>
+            <h1>Регистрация сайта связана с приложением</h1>
+            <p>Пользователь создает аккаунт на сайте, подтверждает email шестизначным кодом и может входить в Android-приложение с теми же данными.</p>
+            <div class="notice"><i data-icon="mail"></i><span>Если email не подтвержден или аккаунт заблокирован, backend не даст открыть защищенные функции.</span></div>
+          </div>
+          <div class="auth-card">
+            <div class="tabs" role="tablist" aria-label="Авторизация">
+              <button class="active" type="button" data-auth-tab="register">Регистрация</button>
+              <button type="button" data-auth-tab="verify">Код</button>
+              <button type="button" data-auth-tab="login">Вход</button>
+            </div>
+            <form class="auth-form active" id="registerForm" data-auth-pane="register">
+              <label>Email<input name="email" type="email" autocomplete="email" required></label>
+              <label>Пароль<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+              <button class="button primary full" type="submit"><i data-icon="user-plus"></i>Создать аккаунт</button>
+            </form>
+            <form class="auth-form" id="verifyForm" data-auth-pane="verify">
+              <label>Email<input name="email" type="email" autocomplete="email" required></label>
+              <label>Код из письма<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required></label>
+              <button class="button primary full" type="submit"><i data-icon="check"></i>Подтвердить аккаунт</button>
+              <button class="text-button" type="button" id="resendCodeButton">Отправить код повторно</button>
+            </form>
+            <form class="auth-form" id="loginForm" data-auth-pane="login">
+              <label>Email<input name="email" type="email" autocomplete="email" required></label>
+              <label>Пароль<input name="password" type="password" autocomplete="current-password" required></label>
+              <button class="button primary full" type="submit"><i data-icon="login"></i>Войти</button>
+            </form>
+            <p class="form-status" id="authStatus" role="status" aria-live="polite"></p>
+          </div>
+        </section>
+      </section>
+
+      <section id="chat" class="view" data-view="chat">
+        <section class="section chat-layout">
+          <div class="chat-title">
+            <div><p class="eyebrow">LLM-чат</p><h1>Закрытый чат AI Food</h1></div>
+            <div class="session"><span id="sessionLabel">Гость</span><button class="button secondary compact" type="button" id="logoutButton"><i data-icon="logout"></i>Выйти</button></div>
+          </div>
+          <div class="gate" id="chatGate">
+            <i data-icon="lock"></i><h2>Войдите в активированный аккаунт</h2><p>После подтверждения email сайт откроет чат с предустановкой AI Food.</p><a class="button primary" href="#account"><i data-icon="login"></i>Перейти к аккаунту</a>
+          </div>
+          <div class="chat-shell" id="chatShell" hidden>
+            <aside class="request-panel">
+              <h2>Параметры</h2><p class="preset" id="presetText"></p>
+              <label>Цель<select id="dietType"><option value="normal">Норма</option><option value="cut">Сушка</option><option value="bulk">Массонабор</option></select></label>
+              <label>Калории в день<input id="dailyCalories" type="number" min="900" max="5000" value="2000"></label>
+              <label>Аллергены<input id="allergens" type="text" placeholder="молоко, арахис"></label>
+              <label>Исключить продукты<input id="excludedProducts" type="text" placeholder="лук, креветки"></label>
+            </aside>
+            <div class="chat-card">
+              <div class="messages" id="messages" aria-live="polite"><div class="message assistant"><p>Привет. Я AI Food, помощник по питанию. Спроси про рацион, рецепт, КБЖУ или ограничения.</p></div></div>
+              <form class="chat-form" id="chatForm"><input id="chatInput" type="text" autocomplete="off" placeholder="Например: предложи ужин без молока на 600 ккал" required><button class="icon-button send-button" type="submit" aria-label="Отправить"><i data-icon="send"></i></button></form>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section id="admin" class="view" data-view="admin">
+        <section class="section admin-layout">
+          <div class="admin-title">
+            <div>
+              <p class="eyebrow">Admin</p>
+              <h1>Управление учетными записями</h1>
+              <p>Только блокировка, разблокировка и удаление. Все права проверяются на backend.</p>
+            </div>
+            <button class="button secondary compact" type="button" id="adminRefreshButton"><i data-icon="refresh"></i>Обновить</button>
+          </div>
+          <div class="gate" id="adminGate"><i data-icon="shield-alert"></i><h2>Нужен admin-доступ</h2><p>Войдите в подтвержденный аккаунт администратора.</p><a class="button primary" href="#account"><i data-icon="login"></i>Перейти к входу</a></div>
+          <div class="admin-panel" id="adminPanel" hidden>
+            <p class="form-status" id="adminStatus" role="status" aria-live="polite"></p>
+            <div class="admin-table-wrap">
+              <table class="admin-table">
+                <thead><tr><th>Email</th><th>Роль</th><th>Статус</th><th>Подтверждение</th><th>Создан</th><th>Действия</th></tr></thead>
+                <tbody id="adminUsersBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section id="download" class="view" data-view="download">
+        <section class="section download-layout">
+          <div>
+            <p class="eyebrow">Android</p>
+            <h1>Скачать основное приложение AI Food</h1>
+            <p>Android-клиент нужен для полного сценария: фото еды, профиль, история, план питания и работа с мобильным интерфейсом.</p>
+            <div class="hero-actions"><a class="button primary" id="androidDownloadLink" href="#" target="_blank" rel="noreferrer"><i data-icon="download"></i>Скачать Android</a><a class="button secondary" id="githubLink" href="#" target="_blank" rel="noreferrer"><i data-icon="github"></i>GitHub</a></div>
+          </div>
+          <div class="release-card"><div><span>Статус</span><strong>MVP</strong></div><div><span>Аккаунт</span><strong>общий</strong></div><div><span>Backend</span><strong>FastAPI</strong></div><div><span>Деплой сайта</span><strong>Cloudflare Pages</strong></div></div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="footer"><span>AI Food by Cremenality</span><span>Website, Android, FastAPI, local LLM</span></footer>
+  </body>
+</html>
