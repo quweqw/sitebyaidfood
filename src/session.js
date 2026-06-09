@@ -6,20 +6,17 @@ const keys = {
   pendingEmail: "cremenality_pending_email",
 };
 
+dropLegacyTokenStorage();
+
 export const session = {
-  accessToken: localStorage.getItem(keys.access),
-  refreshToken: localStorage.getItem(keys.refresh),
   email: localStorage.getItem(keys.email),
   user: readUser(),
   pendingEmail: localStorage.getItem(keys.pendingEmail) || "",
 };
 
 export function saveAuth(payload) {
-  session.accessToken = payload.access_token;
-  session.refreshToken = payload.refresh_token;
+  dropLegacyTokenStorage();
   if (payload.user) saveUser(payload.user);
-  localStorage.setItem(keys.access, session.accessToken);
-  localStorage.setItem(keys.refresh, session.refreshToken);
 }
 
 export function saveUser(user) {
@@ -40,18 +37,15 @@ export function clearPendingEmail() {
 }
 
 export function clearAuth() {
-  session.accessToken = null;
-  session.refreshToken = null;
   session.email = null;
   session.user = null;
-  localStorage.removeItem(keys.access);
-  localStorage.removeItem(keys.refresh);
+  dropLegacyTokenStorage();
   localStorage.removeItem(keys.email);
   localStorage.removeItem(keys.user);
 }
 
 export function isAuthenticated() {
-  return Boolean(session.accessToken);
+  return Boolean(session.user || session.email);
 }
 
 export function isAdmin() {
@@ -65,4 +59,9 @@ function readUser() {
   } catch {
     return null;
   }
+}
+
+function dropLegacyTokenStorage() {
+  localStorage.removeItem(keys.access);
+  localStorage.removeItem(keys.refresh);
 }

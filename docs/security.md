@@ -14,6 +14,8 @@ Admin actions must be protected by the backend:
 - return `403` for non-admin users;
 - rate-limit auth, verification, chat and admin endpoints;
 - audit-log admin actions.
+- use HttpOnly Secure SameSite cookies for browser auth;
+- validate request `Origin` for cookie-auth state-changing requests.
 
 ## Admin API contract
 
@@ -53,16 +55,18 @@ Recommended user shape:
 - Strict referrer policy.
 - Permissions Policy disables camera, microphone, geolocation, payment and USB.
 - Admin link is hidden unless token user claims look like admin.
-- Admin endpoints are still called only with Bearer token.
+- Browser auth uses server-set HttpOnly cookies, not localStorage tokens.
+- `fetch` uses `credentials: include` for auth and LLM API calls.
 - Delete action requires confirmation.
 - Current admin account delete button is disabled in UI.
 
 ## Remaining production recommendations
 
-- Prefer HttpOnly Secure SameSite cookies for web auth in a later backend iteration.
 - Keep access tokens short-lived.
 - Store refresh tokens hashed server-side.
-- Add CSRF protection if cookie auth is introduced.
-- Add account lock/rate limits for brute-force protection.
+- Keep CSRF/Origin protection enabled for cookie-auth requests.
+- Add persistent/distributed rate limits for multi-instance deployments.
 - Add backend-side self-delete prevention for admin accounts.
 - Add backups before enabling permanent user deletion.
+- Keep public auth/users on Cloudflare Worker + D1 so registration and login do not depend on the local PC.
+- Keep resource-heavy local AI endpoints separate from auth; expose them only through RadminVPN or another private network for personal use.

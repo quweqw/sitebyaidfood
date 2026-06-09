@@ -10,6 +10,7 @@ const refreshButton = document.querySelector("#adminRefreshButton");
 
 export function initAdmin() {
   refreshButton.addEventListener("click", loadUsers);
+  window.addEventListener("auth:changed", updateAdminGate);
   window.addEventListener("routechange:local", (event) => {
     if (event.detail.route === "admin") loadUsers();
   });

@@ -205,9 +205,13 @@ h3 { font-size: 20px; line-height: 1.18; }
 .notice { display: flex; align-items: center; gap: 12px; margin-top: 28px; color: #dbe5d9; }
 .notice svg { margin: 0; color: var(--green); }
 .auth-card { padding: 18px; }
-.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 5px; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 8px; background: rgba(0, 0, 0, 0.22); }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 5px; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 8px; background: rgba(0, 0, 0, 0.22); }
 .tabs button { min-height: 38px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); }
 .tabs button.active { background: var(--panel-2); color: var(--text); }
+.account-session { display: grid; gap: 14px; }
+.account-session h2 { font-size: clamp(22px, 4vw, 34px); line-height: 1.1; }
+.account-session p:not(.eyebrow) { color: var(--muted); }
+.account-session-actions { display: grid; gap: 10px; margin-top: 6px; }
 .auth-form { display: none; }
 .auth-form.active { display: grid; gap: 14px; }
 label { display: grid; gap: 8px; color: var(--muted); font-size: 14px; font-weight: 760; }

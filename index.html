@@ -23,7 +23,7 @@
         <a href="#features">Функции</a>
         <a href="#architecture">Архитектура</a>
         <a href="#account">Аккаунт</a>
-        <a href="#chat">Чат</a>
+        <a href="https://cremenality.online">Чат</a>
         <a href="#admin" data-admin-only hidden>Admin</a>
         <a href="#download">Android</a>
       </nav>
@@ -108,28 +108,53 @@
             <div class="notice"><i data-icon="mail"></i><span>Если email не подтвержден или аккаунт заблокирован, backend не даст открыть защищенные функции.</span></div>
           </div>
           <div class="auth-card">
-            <div class="tabs" role="tablist" aria-label="Авторизация">
-              <button class="active" type="button" data-auth-tab="register">Регистрация</button>
-              <button type="button" data-auth-tab="verify">Код</button>
-              <button type="button" data-auth-tab="login">Вход</button>
+            <div class="account-session" id="accountSession" hidden>
+              <p class="eyebrow">Аккаунт</p>
+              <h2 id="accountSessionEmail">Гость</h2>
+              <p id="accountSessionRole">Сессия активна</p>
+              <div class="account-session-actions">
+                <a class="button primary" href="https://cremenality.online"><i data-icon="chat"></i>Открыть чат</a>
+                <a class="button secondary" id="accountAdminLink" href="#admin" hidden><i data-icon="shield"></i>Admin</a>
+                <button class="button secondary" type="button" id="accountLogoutButton"><i data-icon="logout"></i>Выйти</button>
+              </div>
             </div>
-            <form class="auth-form active" id="registerForm" data-auth-pane="register">
-              <label>Email<input name="email" type="email" autocomplete="email" required></label>
-              <label>Пароль<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
-              <button class="button primary full" type="submit"><i data-icon="user-plus"></i>Создать аккаунт</button>
-            </form>
-            <form class="auth-form" id="verifyForm" data-auth-pane="verify">
-              <label>Email<input name="email" type="email" autocomplete="email" required></label>
-              <label>Код из письма<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required></label>
-              <button class="button primary full" type="submit"><i data-icon="check"></i>Подтвердить аккаунт</button>
-              <button class="text-button" type="button" id="resendCodeButton">Отправить код повторно</button>
-            </form>
-            <form class="auth-form" id="loginForm" data-auth-pane="login">
-              <label>Email<input name="email" type="email" autocomplete="email" required></label>
-              <label>Пароль<input name="password" type="password" autocomplete="current-password" required></label>
-              <button class="button primary full" type="submit"><i data-icon="login"></i>Войти</button>
-            </form>
-            <p class="form-status" id="authStatus" role="status" aria-live="polite"></p>
+            <div id="authForms">
+              <div class="tabs" role="tablist" aria-label="Авторизация">
+                <button class="active" type="button" data-auth-tab="register">Регистрация</button>
+                <button type="button" data-auth-tab="verify">Код</button>
+                <button type="button" data-auth-tab="login">Вход</button>
+                <button type="button" data-auth-tab="reset">Сброс</button>
+              </div>
+              <form class="auth-form active" id="registerForm" data-auth-pane="register">
+                <label>Email<input name="email" type="email" autocomplete="email" required></label>
+                <label>Пароль<input name="password" type="password" autocomplete="new-password" minlength="8" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}" title="Минимум 8 символов: строчная и заглавная латинская буква, цифра и спецсимвол." required></label>
+                <button class="button primary full" type="submit"><i data-icon="user-plus"></i>Создать аккаунт</button>
+              </form>
+              <form class="auth-form" id="verifyForm" data-auth-pane="verify">
+                <label>Email<input name="email" type="email" autocomplete="email" required></label>
+                <label>Код из письма<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required></label>
+                <button class="button primary full" type="submit"><i data-icon="check"></i>Подтвердить аккаунт</button>
+                <button class="text-button" type="button" id="resendCodeButton">Отправить код повторно</button>
+              </form>
+              <form class="auth-form" id="loginForm" data-auth-pane="login">
+                <label>Email<input name="email" type="email" autocomplete="email" required></label>
+                <label>Пароль<input name="password" type="password" autocomplete="current-password" required></label>
+                <button class="button primary full" type="submit"><i data-icon="login"></i>Войти</button>
+                <button class="text-button" type="button" id="forgotPasswordButton">Забыли пароль?</button>
+              </form>
+              <form class="auth-form" id="passwordResetRequestForm" data-auth-pane="reset">
+                <label>Email<input name="email" type="email" autocomplete="email" required></label>
+                <button class="button primary full" type="submit"><i data-icon="mail"></i>Отправить код сброса</button>
+              </form>
+              <form class="auth-form" id="passwordResetConfirmForm" data-auth-pane="reset-confirm">
+                <label>Email<input name="email" type="email" autocomplete="email" required></label>
+                <label>Код из письма<input name="code" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" required></label>
+                <label>Новый пароль<input name="password" type="password" autocomplete="new-password" minlength="8" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}" title="Минимум 8 символов: строчная и заглавная латинская буква, цифра и спецсимвол." required></label>
+                <button class="button primary full" type="submit"><i data-icon="check"></i>Сменить пароль</button>
+                <button class="text-button" type="button" id="backToResetRequestButton">Отправить код еще раз</button>
+              </form>
+              <p class="form-status" id="authStatus" role="status" aria-live="polite"></p>
+            </div>
           </div>
         </section>
       </section>

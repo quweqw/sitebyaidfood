@@ -1,0 +1,13 @@
+/*
+  Content-Security-Policy: default-src 'self'; connect-src 'self' https: http://localhost:* http://127.0.0.1:* http://*:8000; img-src 'self' data: blob:; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/config.js
+  Cache-Control: no-store

@@ -8,6 +8,12 @@ const chatGate = document.querySelector("#chatGate");
 const chatShell = document.querySelector("#chatShell");
 const adminNav = document.querySelector("[data-admin-only]");
 const logoutButton = document.querySelector("#logoutButton");
+const accountSession = document.querySelector("#accountSession");
+const authForms = document.querySelector("#authForms");
+const accountSessionEmail = document.querySelector("#accountSessionEmail");
+const accountSessionRole = document.querySelector("#accountSessionRole");
+const accountAdminLink = document.querySelector("#accountAdminLink");
+const accountLogoutButton = document.querySelector("#accountLogoutButton");
 
 export function initAuth() {
   bindTabs();
@@ -18,15 +24,25 @@ export function initAuth() {
 
 export function updateAuthUi() {
   const authenticated = isAuthenticated();
+  const admin = isAdmin();
   sessionLabel.textContent = session.email || "Гость";
   chatGate.hidden = authenticated;
   chatShell.hidden = !authenticated;
   logoutButton.hidden = !authenticated;
-  adminNav.hidden = !isAdmin();
+  adminNav.hidden = !admin;
+  accountSession.hidden = !authenticated;
+  authForms.hidden = authenticated;
+  accountAdminLink.hidden = !admin;
+
+  if (authenticated) {
+    accountSessionEmail.textContent = session.email || "Аккаунт активен";
+    accountSessionRole.textContent = admin ? "Роль: admin" : "Роль: user";
+  }
+
+  window.dispatchEvent(new CustomEvent("auth:changed"));
 }
 
 async function hydrateSession() {
-  if (!isAuthenticated()) return;
   try {
     const me = await api.me();
     saveUser(me);
@@ -45,7 +61,8 @@ function bindTabs() {
 
 function setAuthTab(name) {
   document.querySelectorAll("[data-auth-tab]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.authTab === name);
+    const active = button.dataset.authTab === name || (name === "reset-confirm" && button.dataset.authTab === "reset");
+    button.classList.toggle("active", active);
   });
   document.querySelectorAll("[data-auth-pane]").forEach((pane) => {
     pane.classList.toggle("active", pane.dataset.authPane === name);
@@ -53,14 +70,22 @@ function setAuthTab(name) {
   if (name === "verify" && session.pendingEmail) {
     document.querySelector("#verifyForm [name='email']").value = session.pendingEmail;
   }
+  if (name === "reset" && session.email) {
+    document.querySelector("#passwordResetRequestForm [name='email']").value = session.email;
+  }
 }
 
 function bindForms() {
   document.querySelector("#registerForm").addEventListener("submit", onRegister);
   document.querySelector("#verifyForm").addEventListener("submit", onVerify);
   document.querySelector("#loginForm").addEventListener("submit", onLogin);
+  document.querySelector("#passwordResetRequestForm").addEventListener("submit", onPasswordResetRequest);
+  document.querySelector("#passwordResetConfirmForm").addEventListener("submit", onPasswordResetConfirm);
   document.querySelector("#resendCodeButton").addEventListener("click", onResendCode);
+  document.querySelector("#forgotPasswordButton").addEventListener("click", () => setAuthTab("reset"));
+  document.querySelector("#backToResetRequestButton").addEventListener("click", () => setAuthTab("reset"));
   logoutButton.addEventListener("click", onLogout);
+  accountLogoutButton.addEventListener("click", onLogout);
 }
 
 async function onRegister(event) {
@@ -73,6 +98,14 @@ async function onRegister(event) {
     setStatus(authStatus, "Аккаунт создан. Введите код подтверждения из письма.", "ok");
     setAuthTab("verify");
   } catch (error) {
+    if (error.details?.code === "EMAIL_NOT_VERIFIED") {
+      const email = error.details?.details?.email || data.email;
+      savePendingEmail(email);
+      document.querySelector("#verifyForm [name='email']").value = email;
+      setStatus(authStatus, "Аккаунт уже создан. Введите код подтверждения из письма.", "ok");
+      setAuthTab("verify");
+      return;
+    }
     setStatus(authStatus, error.message, "error");
   }
 }
@@ -87,7 +120,7 @@ async function onVerify(event) {
     clearPendingEmail();
     updateAuthUi();
     setStatus(authStatus, "Аккаунт подтвержден. Чат открыт.", "ok");
-    window.location.hash = "#chat";
+    window.location.hash = "#account";
   } catch (error) {
     setStatus(authStatus, error.message, "error");
   }
@@ -102,7 +135,7 @@ async function onLogin(event) {
     saveAuth(response);
     updateAuthUi();
     setStatus(authStatus, "Вход выполнен. Чат открыт.", "ok");
-    window.location.hash = "#chat";
+    window.location.hash = "#account";
   } catch (error) {
     setStatus(authStatus, error.message, "error");
   }
@@ -119,6 +152,36 @@ async function onResendCode() {
     const response = await api.resendVerificationCode(email);
     savePendingEmail(email);
     setStatus(authStatus, response.message || "Код отправлен повторно.", "ok");
+  } catch (error) {
+    setStatus(authStatus, error.message, "error");
+  }
+}
+
+async function onPasswordResetRequest(event) {
+  event.preventDefault();
+  const data = formValues(event.currentTarget);
+  setStatus(authStatus, "Отправляю код восстановления...");
+  try {
+    const response = await api.requestPasswordReset(data.email);
+    savePendingEmail(data.email);
+    document.querySelector("#passwordResetConfirmForm [name='email']").value = data.email;
+    setStatus(authStatus, response.message || "Код восстановления отправлен на email.", "ok");
+    setAuthTab("reset-confirm");
+  } catch (error) {
+    setStatus(authStatus, error.message, "error");
+  }
+}
+
+async function onPasswordResetConfirm(event) {
+  event.preventDefault();
+  const data = formValues(event.currentTarget);
+  setStatus(authStatus, "Меняю пароль...");
+  try {
+    const response = await api.confirmPasswordReset(data.email, data.code, data.password);
+    clearPendingEmail();
+    setStatus(authStatus, response.message || "Пароль изменен. Теперь можно войти.", "ok");
+    setAuthTab("login");
+    document.querySelector("#loginForm [name='email']").value = data.email;
   } catch (error) {
     setStatus(authStatus, error.message, "error");
   }

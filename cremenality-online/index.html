@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#151515">
+    <title>AI Food App</title>
+    <meta name="description" content="Браузерная версия AI Food для приватного локального backend через RadminVPN.">
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+    <link rel="preload" href="assets/fonts/Idiqlat-Regular.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="stylesheet" href="src/styles.css">
+    <script src="config.js"></script>
+    <script type="module" src="src/app.js"></script>
+  </head>
+  <body>
+    <div id="authGate" class="welcome-screen" hidden>
+      <header class="welcome-links" aria-label="AI Food">
+        <a href="https://cremenality.ru/#features">About</a>
+        <a href="https://cremenality.ru/#account">Contact</a>
+      </header>
+      <main class="welcome-center">
+        <h1>AI Food</h1>
+        <p>Составление плана</p>
+        <p class="status-line" id="authGateStatus"></p>
+      </main>
+      <section class="welcome-panel">
+        <a class="app-button filled" href="https://cremenality.ru/#account">Открыть вход</a>
+        <button class="app-button outlined" type="button" id="retryAuthButton">Проверить</button>
+      </section>
+    </div>
+
+    <div id="connectionGate" class="connection-gate" hidden>
+      <header class="mobile-topbar">
+        <span class="brand-button">
+          <span class="brand-dot"></span>
+          <span>AI Food</span>
+        </span>
+        <a class="nav-text" href="https://cremenality.ru/#account" data-back-site>Назад на сайт</a>
+      </header>
+
+      <main class="connection-screen">
+        <section class="connection-hero">
+          <p class="section-label">Подключение</p>
+          <h1>Выберите доступ к локальному AI Food</h1>
+          <p>
+            Сайт уже видит ваш аккаунт. Осталось подключиться к RadminVPN-сети, где работает backend на вашем ПК,
+            затем можно открыть чат.
+          </p>
+          <small id="connectionEmail"></small>
+        </section>
+
+        <section class="vpn-grid single" id="vpnGrid" aria-label="Способ подключения">
+          <button class="vpn-card active" type="button" data-provider="radmin">
+            <span>VPN</span>
+            <strong>RadminVPN</strong>
+            <small>Постоянный IP внутри сети RadminVPN.</small>
+          </button>
+        </section>
+
+        <section class="connection-details" id="connectionDetails">
+          <p class="status-line">Загружаю данные подключения...</p>
+        </section>
+
+        <section class="connection-actions">
+          <button class="app-button filled" type="button" id="openChatButton" disabled>Я подключился, открыть чат</button>
+          <button class="app-button outlined" type="button" id="refreshConnectionButton">Обновить данные</button>
+        </section>
+      </main>
+    </div>
+
+    <div id="appShell" class="phone-shell" hidden>
+      <section class="app-view active" data-view="chat">
+        <header class="mobile-topbar">
+          <button class="brand-button" type="button" data-view-button="history" title="История">
+            <span class="brand-dot"></span>
+            <span>AI Food</span>
+          </button>
+          <nav class="screen-actions" aria-label="Разделы">
+            <button type="button" data-view-button="planner" title="Рацион">▦</button>
+            <button type="button" data-view-button="settings">Профиль</button>
+            <button type="button" data-open-connection>Подключение</button>
+            <a href="https://cremenality.ru/#account" data-back-site>Назад на сайт</a>
+          </nav>
+        </header>
+
+        <main class="chat-stage">
+          <div class="messages" id="messages"></div>
+          <div class="suggestions" id="suggestions">
+            <button type="button" data-prompt="Составь план питания на неделю">Составь план питания на неделю</button>
+            <button type="button" data-prompt="Предложи рецепт с курицей на ужин">Предложи рецепт с курицей</button>
+          </div>
+        </main>
+
+        <section class="intent-panel" id="intentPanel" hidden>
+          <p id="intentText"></p>
+          <div class="intent-actions">
+            <button type="button" data-intent-action="apply_once">Только сейчас</button>
+            <button type="button" data-intent-action="save_to_profile">Сохранить в профиль</button>
+            <button type="button" data-intent-action="reject">Отклонить</button>
+          </div>
+        </section>
+
+        <form class="composer" id="chatForm">
+          <button class="round-button" type="button" id="openPhotoButton" title="Фото">+</button>
+          <label class="composer-field">
+            <input id="messageInput" type="text" autocomplete="off" placeholder="Спросите AI Food" required>
+            <button type="submit" title="Отправить">↑</button>
+          </label>
+        </form>
+        <input id="photoInput" type="file" accept="image/*" hidden>
+      </section>
+
+      <section class="app-view" data-view="history">
+        <header class="mobile-topbar">
+          <button class="nav-text" type="button" data-view-button="chat">← Чат</button>
+          <strong>История</strong>
+          <button class="nav-text" type="button" id="clearHistoryButton">Очистить</button>
+        </header>
+        <main class="history-list" id="historyList"></main>
+      </section>
+
+      <section class="app-view" data-view="planner">
+        <header class="mobile-topbar">
+          <button class="nav-text" type="button" data-view-button="chat">← Рацион</button>
+          <button class="icon-action" type="button" id="latestPlanButton" title="Обновить">↻</button>
+        </header>
+        <main class="planner-screen">
+          <form class="planner-form" id="plannerForm">
+            <label>Дней<input name="days" type="number" min="1" max="14" value="7"></label>
+            <label>Приемов пищи<input name="meals_per_day" type="number" min="1" max="6" value="3"></label>
+            <label>Калорий<input name="target_calories" type="number" min="900" max="5000" value="2000"></label>
+            <label>Порций<input name="servings" type="number" min="1" max="12" value="1"></label>
+            <label>Цель<select name="goal"><option value="balanced">Норма</option><option value="weight_loss">Сушка</option><option value="muscle_gain">Масса</option></select></label>
+            <label>Людей<input name="people_count" type="number" min="1" max="12" value="1"></label>
+            <button class="app-button outlined wide" type="submit">Сгенерировать рацион</button>
+          </form>
+          <div class="plan-output" id="planOutput"></div>
+        </main>
+      </section>
+
+      <section class="app-view" data-view="settings">
+        <header class="mobile-topbar">
+          <strong>Профиль</strong>
+          <nav class="screen-actions">
+            <button type="button" data-view-button="chat">Чат</button>
+            <a href="https://cremenality.ru/#account" data-back-site>Назад на сайт</a>
+          </nav>
+        </header>
+        <main class="profile-screen">
+          <section class="profile-head">
+            <h1 id="userEmail">-</h1>
+            <button class="edit-profile-pill" type="button">Редактировать профиль</button>
+          </section>
+
+          <form id="settingsForm" class="profile-form">
+            <input name="name" autocomplete="name" hidden>
+
+            <p class="section-label">Параметры</p>
+            <section class="profile-panel">
+              <label class="profile-row"><span>Возраст</span><input name="age" type="number" min="12" max="100"></label>
+              <label class="profile-row"><span>Пол</span><select name="gender"><option value="male">Муж</option><option value="female">Жен</option></select></label>
+              <label class="profile-row"><span>Активность</span><select name="activity_level"><option value="sedentary">Низкая</option><option value="light">Легкая</option><option value="moderate">Средняя</option><option value="active">Высокая</option></select></label>
+              <label class="profile-row"><span>Рост</span><input name="height" type="number" min="120" max="230"></label>
+              <label class="profile-row"><span>Вес</span><input name="weight" type="number" min="35" max="250" step="0.1"></label>
+            </section>
+
+            <p class="section-label">План питания</p>
+            <section class="profile-panel">
+              <label class="profile-row calories-row"><span>Калорий в день</span><input name="daily_calories" type="number" min="900" max="5000"></label>
+              <button class="inline-link" type="button" id="calculateCaloriesButton">Рассчитать количество калорий?</button>
+              <label class="profile-row"><span>Цель</span><select name="diet_type"><option value="bulk">Массонабор</option><option value="cut">Сушка</option><option value="normal">Норма</option></select></label>
+              <label class="profile-row"><span>Приемов пищи</span><input name="meals_per_day" type="number" min="1" max="6"></label>
+            </section>
+
+            <p class="section-label">Продукты</p>
+            <section class="profile-panel">
+              <label class="product-row"><span>Аллергены<small>через запятую</small></span><input name="allergens" placeholder="яйца"></label>
+              <label class="product-row"><span>Любимые продукты<small>через запятую</small></span><input name="favorite_products" placeholder="курица, тунец"></label>
+              <label class="product-row"><span>Нелюбимые продукты<small>через запятую</small></span><input name="disliked_products" placeholder="говядина, свинина"></label>
+              <label class="product-row"><span>Исключить продукты<small>через запятую</small></span><input name="excluded_products" placeholder="перец"></label>
+            </section>
+
+            <button class="app-button outlined wide save-button" type="submit">Сохранить</button>
+          </form>
+          <p class="status-line" id="settingsStatus"></p>
+        </main>
+      </section>
+    </div>
+  </body>
+</html>

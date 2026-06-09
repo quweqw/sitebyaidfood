@@ -1,3 +1,5 @@
+import { appConfig } from "./config.js";
+
 const views = [...document.querySelectorAll("[data-view]")];
 const navLinks = [...document.querySelectorAll(".main-nav a")];
 const mainNav = document.querySelector(".main-nav");
@@ -15,6 +17,10 @@ export function initRouter() {
 
 export function route() {
   const routeName = (window.location.hash || "#home").replace("#", "");
+  if (routeName === "chat") {
+    window.location.href = appConfig.chatAppUrl;
+    return;
+  }
   const selected = views.some((view) => view.dataset.view === routeName) ? routeName : "home";
   views.forEach((view) => view.classList.toggle("active", view.dataset.view === selected));
   navLinks.forEach((link) => link.classList.toggle("active", link.getAttribute("href") === `#${selected}`));

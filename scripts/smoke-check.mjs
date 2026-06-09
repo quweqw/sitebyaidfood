@@ -42,6 +42,7 @@ const html = await readFile(join(root, "index.html"), "utf8");
 const headers = await readFile(join(root, "_headers"), "utf8");
 const config = await readFile(join(root, "config.js"), "utf8");
 const api = await readFile(join(root, "src/api.js"), "utf8");
+const session = await readFile(join(root, "src/session.js"), "utf8");
 
 for (const marker of [
   "id=\"registerForm\"",
@@ -73,5 +74,10 @@ for (const path of [
 if (html.includes("unpkg.com") || html.includes("https://cdn")) throw new Error("External CDN script found in HTML");
 if (!headers.includes("Content-Security-Policy")) throw new Error("CSP header is missing");
 if (!config.includes("https://api.cremenality.ru")) throw new Error("Production API URL is not configured");
+if (!api.includes('credentials: "include"')) throw new Error("Cookie credentials are not enabled for API calls");
+if (api.includes("Authorization = `Bearer") || api.includes("headers.Authorization")) throw new Error("Browser must not send localStorage bearer tokens");
+if (session.includes("localStorage.setItem(keys.access") || session.includes("localStorage.setItem(keys.refresh")) {
+  throw new Error("Browser must not persist auth tokens in localStorage");
+}
 
 console.log("Smoke check passed");
