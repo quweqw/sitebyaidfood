@@ -1,4 +1,5 @@
 import { appConfig } from "./config.js";
+import { withAccessToken } from "./session.js";
 
 const views = [...document.querySelectorAll("[data-view]")];
 const navLinks = [...document.querySelectorAll(".main-nav a")];
@@ -18,7 +19,7 @@ export function initRouter() {
 export function route() {
   const routeName = (window.location.hash || "#home").replace("#", "");
   if (routeName === "chat") {
-    window.location.href = appConfig.chatAppUrl;
+    window.location.href = withAccessToken(appConfig.chatAppUrl);
     return;
   }
   const selected = views.some((view) => view.dataset.view === routeName) ? routeName : "home";

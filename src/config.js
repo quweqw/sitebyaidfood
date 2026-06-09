@@ -4,7 +4,7 @@ export const appConfig = {
   apiBaseUrl: legacyApiBaseUrl,
   authApiBaseUrl: readConfig("authApiBaseUrl", legacyApiBaseUrl).replace(/\/$/, ""),
   coreApiBaseUrl: readConfig("coreApiBaseUrl", "https://llm.cremenality.ru").replace(/\/$/, ""),
-  chatAppUrl: readConfig("chatAppUrl", "https://cremenality.online/?v=20260610-radmin"),
+  chatAppUrl: readConfig("chatAppUrl", "https://cremenality.online/?v=20260610-handoff"),
   androidDownloadUrl: readConfig("androidDownloadUrl", "https://github.com/quweqw/AI-Food/releases"),
   githubUrl: readConfig("githubUrl", "https://github.com/quweqw/AI-Food"),
   chatPreset: readConfig(

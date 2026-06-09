@@ -1,5 +1,6 @@
 import { api } from "./api.js";
-import { clearAuth, clearPendingEmail, isAdmin, isAuthenticated, saveAuth, savePendingEmail, saveUser, session } from "./session.js";
+import { appConfig } from "./config.js";
+import { clearAuth, clearPendingEmail, isAdmin, isAuthenticated, saveAuth, savePendingEmail, saveUser, session, withAccessToken } from "./session.js";
 import { formValues, setStatus } from "./ui.js";
 
 const authStatus = document.querySelector("#authStatus");
@@ -33,6 +34,9 @@ export function updateAuthUi() {
   accountSession.hidden = !authenticated;
   authForms.hidden = authenticated;
   accountAdminLink.hidden = !admin;
+  document.querySelectorAll("[data-chat-link]").forEach((link) => {
+    link.href = authenticated ? withAccessToken(appConfig.chatAppUrl) : appConfig.chatAppUrl;
+  });
 
   if (authenticated) {
     accountSessionEmail.textContent = session.email || "Аккаунт активен";

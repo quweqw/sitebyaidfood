@@ -1,5 +1,5 @@
 import { appConfig } from "./config.js";
-import { clearAuth, saveAuth } from "./session.js";
+import { clearAuth, getAccessToken, saveAuth } from "./session.js";
 
 export class ApiError extends Error {
   constructor(message, status = 0, details = null) {
@@ -73,7 +73,9 @@ function apiBaseUrl(target) {
 }
 
 function buildHeaders(auth) {
-  const headers = { "Content-Type": "application/json" };
+  const headers = { "Content-Type": "application/json", "X-AI-Food-Client": "native" };
+  const token = auth ? getAccessToken() : "";
+  if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 }
 
@@ -89,7 +91,7 @@ async function refreshAccessToken() {
     const response = await fetch(`${appConfig.authApiBaseUrl}/auth/refresh`, {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-AI-Food-Client": "native" },
     });
     const parsed = await parseResponse(response);
     if (!response.ok) throw toApiError(parsed, response.status);

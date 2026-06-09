@@ -43,6 +43,8 @@ const headers = await readFile(join(root, "_headers"), "utf8");
 const config = await readFile(join(root, "config.js"), "utf8");
 const api = await readFile(join(root, "src/api.js"), "utf8");
 const session = await readFile(join(root, "src/session.js"), "utf8");
+const auth = await readFile(join(root, "src/auth.js"), "utf8");
+const router = await readFile(join(root, "src/router.js"), "utf8");
 
 for (const marker of [
   "id=\"registerForm\"",
@@ -75,9 +77,12 @@ if (html.includes("unpkg.com") || html.includes("https://cdn")) throw new Error(
 if (!headers.includes("Content-Security-Policy")) throw new Error("CSP header is missing");
 if (!config.includes("https://api.cremenality.ru")) throw new Error("Production API URL is not configured");
 if (!api.includes('credentials: "include"')) throw new Error("Cookie credentials are not enabled for API calls");
-if (api.includes("Authorization = `Bearer") || api.includes("headers.Authorization")) throw new Error("Browser must not send localStorage bearer tokens");
-if (session.includes("localStorage.setItem(keys.access") || session.includes("localStorage.setItem(keys.refresh")) {
-  throw new Error("Browser must not persist auth tokens in localStorage");
+if (!api.includes('"X-AI-Food-Client": "native"')) throw new Error("Native token responses are required for chat handoff");
+if (!session.includes("hash.set(\"token\"")) throw new Error("Chat handoff must pass access token in URL hash");
+if (!auth.includes("withAccessToken(appConfig.chatAppUrl)")) throw new Error("Account chat link must include token handoff");
+if (!router.includes("withAccessToken(appConfig.chatAppUrl)")) throw new Error("Hash router chat redirect must include token handoff");
+if (session.includes("localStorage.setItem(keys.refresh")) {
+  throw new Error("Browser must not persist refresh tokens in localStorage");
 }
 
 console.log("Smoke check passed");

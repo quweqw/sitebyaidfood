@@ -69,9 +69,25 @@ const elements = {
 init();
 
 async function init() {
+  consumeInboundToken();
   bindEvents();
   loadConnection();
   await hydrateAuth();
+}
+
+function consumeInboundToken() {
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const token = hash.get("token");
+  if (token) {
+    state.coreToken = token;
+    sessionStorage.setItem("aifood_access_token", token);
+    hash.delete("token");
+    const nextHash = hash.toString();
+    const nextUrl = `${window.location.pathname}${window.location.search}${nextHash ? `#${nextHash}` : ""}`;
+    window.history.replaceState(null, "", nextUrl);
+    return;
+  }
+  state.coreToken = sessionStorage.getItem("aifood_access_token") || "";
 }
 
 function bindEvents() {
@@ -165,6 +181,7 @@ async function logout() {
   } finally {
     state.user = null;
     state.coreToken = "";
+    sessionStorage.removeItem("aifood_access_token");
     setHidden(elements.appShell, true);
     setHidden(elements.connectionGate, true);
     setHidden(elements.authGate, false);
@@ -288,6 +305,7 @@ async function authRequest(path, options = {}) {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...(state.coreToken ? { Authorization: `Bearer ${state.coreToken}` } : {}),
       ...(options.headers || {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
