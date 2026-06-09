@@ -75,6 +75,10 @@ async function init() {
 }
 
 function bindEvents() {
+  const on = (element, eventName, handler) => {
+    if (element) element.addEventListener(eventName, handler);
+  };
+
   document.querySelectorAll("[data-view-button]").forEach((button) => {
     button.addEventListener("click", () => setView(button.dataset.viewButton));
   });
@@ -87,29 +91,29 @@ function bindEvents() {
   document.querySelectorAll("[data-open-connection]").forEach((button) => {
     button.addEventListener("click", () => showConnectionGate(true));
   });
-  elements.vpnGrid.addEventListener("click", (event) => {
+  on(elements.vpnGrid, "click", (event) => {
     const button = event.target.closest("[data-provider]");
     if (button) selectConnectionProvider(button.dataset.provider);
   });
-  elements.openChatButton.addEventListener("click", openConnectedChat);
-  elements.refreshConnectionButton.addEventListener("click", () => showConnectionGate(true));
-  elements.retryAuthButton.addEventListener("click", hydrateAuth);
-  if (elements.newChatButton) elements.newChatButton.addEventListener("click", newChat);
-  elements.clearHistoryButton.addEventListener("click", clearHistory);
-  elements.chatForm.addEventListener("submit", (event) => {
+  on(elements.openChatButton, "click", openConnectedChat);
+  on(elements.refreshConnectionButton, "click", () => showConnectionGate(true));
+  on(elements.retryAuthButton, "click", hydrateAuth);
+  on(elements.newChatButton, "click", newChat);
+  on(elements.clearHistoryButton, "click", clearHistory);
+  on(elements.chatForm, "submit", (event) => {
     event.preventDefault();
     sendMessage(elements.messageInput.value);
   });
-  elements.openPhotoButton.addEventListener("click", () => elements.photoInput.click());
-  elements.photoInput.addEventListener("change", onPhotoSelected);
-  elements.intentPanel.addEventListener("click", (event) => {
+  on(elements.openPhotoButton, "click", () => elements.photoInput?.click());
+  on(elements.photoInput, "change", onPhotoSelected);
+  on(elements.intentPanel, "click", (event) => {
     const button = event.target.closest("[data-intent-action]");
     if (button) confirmIntent(button.dataset.intentAction);
   });
-  elements.settingsForm.addEventListener("submit", saveSettings);
-  elements.calculateCaloriesButton.addEventListener("click", calculateCalories);
-  elements.plannerForm.addEventListener("submit", generatePlanFromForm);
-  elements.latestPlanButton.addEventListener("click", loadLatestPlan);
+  on(elements.settingsForm, "submit", saveSettings);
+  on(elements.calculateCaloriesButton, "click", calculateCalories);
+  on(elements.plannerForm, "submit", generatePlanFromForm);
+  on(elements.latestPlanButton, "click", loadLatestPlan);
 }
 
 async function hydrateAuth() {
@@ -118,8 +122,8 @@ async function hydrateAuth() {
     const user = await loadAuthenticatedUser();
     state.user = user;
     state.settings = { ...state.settings, email: user.email, ...(user.profile || {}) };
-    elements.userEmail.textContent = user.email;
-    elements.connectionEmail.textContent = user.email;
+    if (elements.userEmail) elements.userEmail.textContent = user.email;
+    if (elements.connectionEmail) elements.connectionEmail.textContent = user.email;
     loadLocalState();
     fillSettingsForm();
     renderChat();
@@ -132,9 +136,9 @@ async function hydrateAuth() {
     }
   } catch {
     state.user = null;
-    elements.authGate.hidden = false;
-    elements.connectionGate.hidden = true;
-    elements.appShell.hidden = true;
+    setHidden(elements.authGate, false);
+    setHidden(elements.connectionGate, true);
+    setHidden(elements.appShell, true);
     setGateStatus("Активная сессия не найдена.");
   }
 }
@@ -161,24 +165,28 @@ async function logout() {
   } finally {
     state.user = null;
     state.coreToken = "";
-    elements.appShell.hidden = true;
-    elements.connectionGate.hidden = true;
-    elements.authGate.hidden = false;
+    setHidden(elements.appShell, true);
+    setHidden(elements.connectionGate, true);
+    setHidden(elements.authGate, false);
   }
 }
 
 function showAppShell() {
-  elements.authGate.hidden = true;
-  elements.connectionGate.hidden = true;
-  elements.appShell.hidden = false;
+  setHidden(elements.authGate, true);
+  setHidden(elements.connectionGate, true);
+  setHidden(elements.appShell, false);
   renderChat();
   setView("chat");
 }
 
 async function showConnectionGate(forceRefresh = false) {
-  elements.authGate.hidden = true;
-  elements.appShell.hidden = true;
-  elements.connectionGate.hidden = false;
+  if (!elements.connectionGate || !elements.connectionDetails || !elements.openChatButton) {
+    showAppShell();
+    return;
+  }
+  setHidden(elements.authGate, true);
+  setHidden(elements.appShell, true);
+  setHidden(elements.connectionGate, false);
   elements.openChatButton.disabled = true;
   elements.connectionDetails.innerHTML = `<p class="status-line">Загружаю данные подключения...</p>`;
   if (forceRefresh) state.connectionInfo = null;
@@ -1044,7 +1052,11 @@ function chatTitle(chat) {
 }
 
 function setGateStatus(text) {
-  elements.authGateStatus.textContent = text;
+  if (elements.authGateStatus) elements.authGateStatus.textContent = text;
+}
+
+function setHidden(element, hidden) {
+  if (element) element.hidden = hidden;
 }
 
 function setSettingsStatus(text, isError = false) {
