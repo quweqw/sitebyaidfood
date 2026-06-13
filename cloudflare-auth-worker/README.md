@@ -1,108 +1,93 @@
-# AI Food Auth Worker
+# AI Food Cloud Backend
 
 Cloudflare Worker for `api.cremenality.ru`.
 
-It handles:
+## Responsibilities
 
-- registration;
-- email verification;
-- login/logout;
-- HttpOnly cookie sessions;
-- password reset;
-- admin user management;
-- RadminVPN connection details for `cremenality.online`.
+- registration, email verification, login and password reset;
+- HttpOnly browser sessions and bearer tokens for Android;
+- user profile and deterministic calorie calculation;
+- OpenAI text chat and food image analysis;
+- OpenAI-assisted meal-plan generation with D1 persistence;
+- admin users, support, partnership requests and CRM delivery.
 
 ## Runtime
 
 ```text
 Cloudflare Worker
 Cloudflare D1
+OpenAI Responses API
 Resend HTTP email API
-```
-
-## Important Files
-
-```text
-src/index.js       Worker source
-wrangler.toml      Worker config and public env values
-migrations/        D1 schema migrations
 ```
 
 ## Secrets
 
-Do not put secrets into git.
+```powershell
+& "C:\Program Files\nodejs\npx.cmd" wrangler secret put SECRET_KEY
+& "C:\Program Files\nodejs\npx.cmd" wrangler secret put RESEND_API_KEY
+& "C:\Program Files\nodejs\npx.cmd" wrangler secret put OPENAI_API_KEY
+```
 
-Required Worker secrets:
+Optional:
 
 ```powershell
-& "C:\Program Files\nodejs\node.exe" ".\node_modules\wrangler\bin\wrangler.js" secret put SECRET_KEY
-& "C:\Program Files\nodejs\node.exe" ".\node_modules\wrangler\bin\wrangler.js" secret put RESEND_API_KEY
-& "C:\Program Files\nodejs\node.exe" ".\node_modules\wrangler\bin\wrangler.js" secret put CONNECTION_RADMIN_PASSWORD
+& "C:\Program Files\nodejs\npx.cmd" wrangler secret put BITRIX_WEBHOOK_URL
+& "C:\Program Files\nodejs\npx.cmd" wrangler secret put TURNSTILE_SECRET_KEY
+& "C:\Program Files\nodejs\npx.cmd" wrangler secret put TELEGRAM_BOT_TOKEN
 ```
 
-`SECRET_KEY` must match the local backend `SECRET_KEY` so the local backend can accept hosted auth tokens.
+Do not put secret values into `wrangler.toml` or git. The OpenAI key visible in any screenshot or message must be revoked before deployment.
 
-## RadminVPN Public Values
+## Database
 
-Configured in `wrangler.toml`:
-
-```toml
-CONNECTION_DEFAULT_PROVIDER = "radmin"
-CONNECTION_RADMIN_IP = "26.192.1.120"
-CONNECTION_RADMIN_LOGIN = "aifoodwebapp"
-CONNECTION_RADMIN_CORE_API_URL = "http://26.192.1.120:8000"
+```powershell
+& "C:\Program Files\nodejs\npx.cmd" wrangler d1 migrations apply aifood-auth --remote
 ```
+
+Migration `0003_cloud_ai_core.sql` adds persisted meal plans.
+Migration `0004_crm_production.sql` adds the CRM audit log.
+
+Bitrix24 entity IDs and field mappings are configured through the `BITRIX_*` variables in `wrangler.toml`. See `../docs/bitrix24.md`.
 
 ## Deploy
 
 ```powershell
-cd cloudflare-auth-worker
-& "C:\Program Files\nodejs\node.exe" ".\node_modules\wrangler\bin\wrangler.js" deploy
+& "C:\Program Files\nodejs\npx.cmd" wrangler deploy
 ```
 
-## D1
+## Core API
 
-Current D1 binding in `wrangler.toml`:
+```text
+POST  /chat/message
+POST  /api/ai/chat
+
+GET   /profile
+PUT   /profile
+PATCH /profile
+POST  /profile/calculate-calories
+
+POST  /recognition/image
+
+POST  /meal-planner/intent/parse
+POST  /meal-planner/generate
+POST  /meal-planner/dinner-suggestion
+GET   /meal-planner/latest
+GET   /meal-planner/:plan_id
+PATCH /meal-planner/:plan_id/meals/:meal_id/progress
+POST  /meal-planner/:plan_id/meals/:meal_id/replace
+POST  /meal-planner/:plan_id/meals/:meal_id/regenerate
+```
+
+All Core API routes require an authenticated and verified user.
+
+## OpenAI Configuration
+
+Public model and limit settings are in `wrangler.toml`:
 
 ```toml
-binding = "DB"
-database_name = "aifood-auth"
+OPENAI_MODEL = "gpt-5.4-mini"
+OPENAI_VISION_MODEL = "gpt-5.4-mini"
+OPENAI_PLANNER_MODEL = "gpt-5.4-mini"
 ```
 
-Apply migrations:
-
-```powershell
-& "C:\Program Files\nodejs\node.exe" ".\node_modules\wrangler\bin\wrangler.js" d1 migrations apply aifood-auth --remote
-```
-
-## API
-
-Public:
-
-```text
-GET  /
-POST /auth/register
-POST /auth/verify-email
-POST /auth/resend-verification-code
-POST /auth/login
-POST /auth/refresh
-POST /auth/logout
-GET  /auth/me
-POST /auth/password-reset/request
-POST /auth/password-reset/confirm
-POST /auth/change-password
-```
-
-Authenticated:
-
-```text
-GET /connection-info
-```
-
-Admin:
-
-```text
-GET    /admin/users
-PATCH  /admin/users/:id/block
-DELETE /admin/users/:id
-```
+Requests use `store: false`. Structured outputs are used for image recognition and meal-plan data. Calorie targets are calculated in Worker code rather than delegated to the model.

@@ -22,6 +22,8 @@
         <a href="#home">Главная</a>
         <a href="#features">Функции</a>
         <a href="#architecture">Архитектура</a>
+        <a href="#cooperation">Сотрудничество</a>
+        <a href="#support">Помощь</a>
         <a href="#account">Аккаунт</a>
         <a href="https://cremenality.online/?v=20260610-handoff" data-chat-link>Чат</a>
         <a href="#admin" data-admin-only hidden>Admin</a>
@@ -93,9 +95,62 @@
         <section class="section pipeline" aria-label="Схема работы">
           <article class="pipeline-step"><i data-icon="globe"></i><h2>Сайт</h2><p>Cloudflare Pages, темная витрина, auth, download, admin и закрытый чат.</p></article>
           <article class="pipeline-step"><i data-icon="phone"></i><h2>Android</h2><p>Основной клиент с фото, профилем, историей и планом питания.</p></article>
-          <article class="pipeline-step"><i data-icon="server"></i><h2>FastAPI</h2><p>Единые endpoints для auth, profile, chat, recognition, admin и meal planner.</p></article>
-          <article class="pipeline-step"><i data-icon="bot"></i><h2>LLM</h2><p>LLaMA 3.1 8B через Ollama и туннель при включенном ПК.</p></article>
-          <article class="pipeline-step"><i data-icon="database"></i><h2>DB</h2><p>Пользователи, роли, блокировки, профиль и планы питания хранятся на backend.</p></article>
+          <article class="pipeline-step"><i data-icon="server"></i><h2>Cloudflare Worker</h2><p>Единые endpoints для auth, профиля, OpenAI, поддержки, CRM и meal planner.</p></article>
+          <article class="pipeline-step"><i data-icon="bot"></i><h2>OpenAI API</h2><p>Текстовый чат, анализ фото и генерация рациона работают без локального ПК и туннелей.</p></article>
+          <article class="pipeline-step"><i data-icon="database"></i><h2>D1</h2><p>Пользователи, роли, обращения, переписка, профиль и планы питания хранятся в облачной базе.</p></article>
+        </section>
+      </section>
+
+      <section id="cooperation" class="view" data-view="cooperation">
+        <section class="section page-title">
+          <p class="eyebrow">Сотрудничество</p>
+          <h1>Предложите партнерство или API-интеграцию</h1>
+          <p>Заявка сохраняется в AI Food, передается в CRM и открывает отдельный чат с представителем проекта.</p>
+        </section>
+        <section class="section crm-workspace">
+          <form class="crm-form" id="partnershipForm">
+            <div class="segmented-control" role="group" aria-label="Тип сотрудничества">
+              <label><input type="radio" name="cooperation_type" value="small_business" checked><span>Малый бизнес</span></label>
+              <label><input type="radio" name="cooperation_type" value="enterprise_api"><span>Бизнес и API</span></label>
+            </div>
+            <div class="form-grid">
+              <label>Email<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
+              <label>Ваше имя<input name="author_name" type="text" autocomplete="name" maxlength="120" required></label>
+              <label>Компания или проект<input name="company_name" type="text" maxlength="160"></label>
+              <label>Предпочтительная связь
+                <select name="preferred_contact">
+                  <option value="email">Email</option>
+                  <option value="telegram">Telegram</option>
+                  <option value="phone">Телефон</option>
+                  <option value="other">Другой способ</option>
+                </select>
+              </label>
+            </div>
+            <label>Тема<input name="subject" type="text" minlength="3" maxlength="180" required></label>
+            <label>Предложение
+              <textarea name="proposal_message" minlength="10" maxlength="6000" rows="8" required></textarea>
+              <span class="field-counter"><span id="partnershipMessageCount">0</span>/6000</span>
+            </label>
+            <label class="honeypot" aria-hidden="true">Сайт<input name="website" type="text" tabindex="-1" autocomplete="off"></label>
+            <label class="consent-row"><input name="consent" type="checkbox" required><span>Согласен на обработку обращения и обратную связь.</span></label>
+            <div class="turnstile-slot" data-turnstile-action="partnership" hidden></div>
+            <button class="button primary" type="submit"><i data-icon="send"></i>Отправить заявку</button>
+            <p class="form-status" id="partnershipStatus" role="status" aria-live="polite"></p>
+          </form>
+          <section class="crm-thread-panel" id="partnershipThreadsPanel" hidden>
+            <div class="crm-panel-head">
+              <div><p class="eyebrow">Чат с представителем</p><h2>Ваши заявки</h2></div>
+              <button class="icon-button" type="button" id="partnershipRefreshButton" aria-label="Обновить"><i data-icon="refresh"></i></button>
+            </div>
+            <div class="crm-list" id="partnershipThreads"></div>
+            <div class="crm-conversation" id="partnershipConversation" hidden>
+              <div class="crm-messages" id="partnershipMessages"></div>
+              <form class="crm-message-form" id="partnershipMessageForm">
+                <input name="message" type="text" maxlength="6000" autocomplete="off" placeholder="Напишите сообщение" required>
+                <button class="icon-button send-button" type="submit" aria-label="Отправить"><i data-icon="send"></i></button>
+              </form>
+            </div>
+          </section>
         </section>
       </section>
 
@@ -114,6 +169,7 @@
               <p id="accountSessionRole">Сессия активна</p>
               <div class="account-session-actions">
                 <a class="button primary" href="https://cremenality.online/?v=20260610-handoff" data-chat-link><i data-icon="chat"></i>Открыть чат</a>
+                <a class="button secondary" href="#requests"><i data-icon="mail"></i>Обращения</a>
                 <a class="button secondary" id="accountAdminLink" href="#admin" hidden><i data-icon="shield"></i>Admin</a>
                 <button class="button secondary" type="button" id="accountLogoutButton"><i data-icon="logout"></i>Выйти</button>
               </div>
@@ -159,6 +215,70 @@
         </section>
       </section>
 
+      <section id="support" class="view" data-view="support">
+        <section class="section page-title">
+          <p class="eyebrow">Помощь</p>
+          <h1>Поддержка AI Food</h1>
+          <p>Создайте обращение по аккаунту, AI-чату, распознаванию еды или сообщите об ошибке.</p>
+        </section>
+        <section class="section support-layout">
+          <div>
+            <p class="eyebrow">Поддержка</p>
+            <h2>Обращения по аккаунту и работе AI Food</h2>
+            <p>Для создания обращения войдите в аккаунт. История сохраняется здесь, а ответ представителя также придет на email.</p>
+            <a class="button secondary compact" href="#account"><i data-icon="user"></i>Перейти к аккаунту</a>
+          </div>
+          <form class="crm-form" id="supportForm">
+            <label>Категория
+              <select name="category">
+                <option value="account">Аккаунт</option>
+                <option value="ai_chat">AI-чат</option>
+                <option value="food_recognition">Распознавание еды</option>
+                <option value="bug">Ошибка</option>
+                <option value="other">Другое</option>
+              </select>
+            </label>
+            <label>Тема<input name="subject" type="text" minlength="3" maxlength="180" required></label>
+            <label>Сообщение
+              <textarea name="message" minlength="10" maxlength="6000" rows="5" required></textarea>
+              <span class="field-counter"><span id="supportMessageCount">0</span>/6000</span>
+            </label>
+            <label class="honeypot" aria-hidden="true">Сайт<input name="website" type="text" tabindex="-1" autocomplete="off"></label>
+            <label class="consent-row"><input name="consent" type="checkbox" required><span>Согласен на обработку обращения и обратную связь.</span></label>
+            <div class="turnstile-slot" data-turnstile-action="support" hidden></div>
+            <button class="button secondary" type="submit"><i data-icon="mail"></i>Создать обращение</button>
+            <p class="form-status" id="supportStatus" role="status" aria-live="polite"></p>
+          </form>
+          <div class="crm-list" id="supportTickets"></div>
+        </section>
+      </section>
+
+      <section id="requests" class="view" data-view="requests">
+        <section class="section page-title">
+          <p class="eyebrow">Аккаунт</p>
+          <h1>Ваши обращения</h1>
+          <p>Здесь сохраняются заявки на сотрудничество и обращения в поддержку. История переписки доступна после повторного входа и обновления страницы.</p>
+        </section>
+        <section class="section requests-layout">
+          <div class="requests-column">
+            <div class="requests-heading">
+              <div><p class="eyebrow">Сотрудничество</p><h2>Диалоги с представителем</h2></div>
+              <a class="button secondary compact" href="#cooperation">Новая заявка</a>
+            </div>
+            <p class="requests-empty" id="partnershipEmptyState">Заявок на сотрудничество пока нет.</p>
+            <div id="requestsPartnershipMount"></div>
+          </div>
+          <div class="requests-column">
+            <div class="requests-heading">
+              <div><p class="eyebrow">Поддержка</p><h2>Обращения в поддержку</h2></div>
+              <a class="button secondary compact" href="#support">Новое обращение</a>
+            </div>
+            <p class="requests-empty" id="supportEmptyState">Обращений в поддержку пока нет.</p>
+            <div id="requestsSupportMount"></div>
+          </div>
+        </section>
+      </section>
+
       <section id="chat" class="view" data-view="chat">
         <section class="section chat-layout">
           <div class="chat-title">
@@ -190,18 +310,45 @@
             <div>
               <p class="eyebrow">Admin</p>
               <h1>Управление учетными записями</h1>
-              <p>Только блокировка, разблокировка и удаление. Все права проверяются на backend.</p>
+              <p>Назначение служебных ролей, блокировка, разблокировка и удаление. Все права проверяются на backend.</p>
             </div>
             <button class="button secondary compact" type="button" id="adminRefreshButton"><i data-icon="refresh"></i>Обновить</button>
           </div>
           <div class="gate" id="adminGate"><i data-icon="shield-alert"></i><h2>Нужен admin-доступ</h2><p>Войдите в подтвержденный аккаунт администратора.</p><a class="button primary" href="#account"><i data-icon="login"></i>Перейти к входу</a></div>
           <div class="admin-panel" id="adminPanel" hidden>
+            <div class="tabs admin-crm-tabs" role="tablist" aria-label="Раздел администратора">
+              <button class="active" type="button" data-admin-panel="users">Пользователи</button>
+              <button type="button" data-admin-panel="partnerships">Сотрудничество</button>
+              <button type="button" data-admin-panel="support">Поддержка</button>
+              <button type="button" data-admin-panel="integration">Интеграция</button>
+            </div>
             <p class="form-status" id="adminStatus" role="status" aria-live="polite"></p>
-            <div class="admin-table-wrap">
-              <table class="admin-table">
-                <thead><tr><th>Email</th><th>Роль</th><th>Статус</th><th>Подтверждение</th><th>Создан</th><th>Действия</th></tr></thead>
-                <tbody id="adminUsersBody"></tbody>
-              </table>
+            <div class="admin-crm-panel active" data-admin-content="users">
+              <div class="admin-users-toolbar">
+                <label class="admin-search">
+                  <span>Поиск пользователей</span>
+                  <input id="adminUserSearch" type="search" autocomplete="off" placeholder="Email, роль или статус">
+                </label>
+                <span class="admin-users-summary" id="adminUsersSummary"></span>
+              </div>
+              <div class="admin-table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>Email</th><th>Роль</th><th>Статус</th><th>Подтверждение</th><th>Создан</th><th>Действия</th></tr></thead>
+                  <tbody id="adminUsersBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="admin-crm-panel" data-admin-content="partnerships">
+              <div class="crm-list admin-crm-list" id="adminPartnerships"></div>
+            </div>
+            <div class="admin-crm-panel" data-admin-content="support">
+              <div class="crm-list admin-crm-list" id="adminSupportTickets"></div>
+            </div>
+            <div class="admin-crm-panel" data-admin-content="integration">
+              <div class="admin-integration-toolbar">
+                <button class="button secondary compact" type="button" id="adminRetryCrmButton"><i data-icon="refresh"></i>Повторить ошибки</button>
+              </div>
+              <div class="crm-list admin-crm-list" id="adminCrmOutbox"></div>
             </div>
           </div>
         </section>
@@ -215,11 +362,11 @@
             <p>Android-клиент нужен для полного сценария: фото еды, профиль, история, план питания и работа с мобильным интерфейсом.</p>
             <div class="hero-actions"><a class="button primary" id="androidDownloadLink" href="#" target="_blank" rel="noreferrer"><i data-icon="download"></i>Скачать Android</a><a class="button secondary" id="githubLink" href="#" target="_blank" rel="noreferrer"><i data-icon="github"></i>GitHub</a></div>
           </div>
-          <div class="release-card"><div><span>Статус</span><strong>MVP</strong></div><div><span>Аккаунт</span><strong>общий</strong></div><div><span>Backend</span><strong>FastAPI</strong></div><div><span>Деплой сайта</span><strong>Cloudflare Pages</strong></div></div>
+          <div class="release-card"><div><span>Статус</span><strong>Cloud MVP</strong></div><div><span>Аккаунт</span><strong>общий</strong></div><div><span>Backend</span><strong>Cloudflare Worker</strong></div><div><span>AI</span><strong>OpenAI API</strong></div></div>
         </section>
       </section>
     </main>
 
-    <footer class="footer"><span>AI Food by Cremenality</span><span>Website, Android, FastAPI, local LLM</span></footer>
+    <footer class="footer"><span>AI Food by Cremenality</span><span>Website, Android, Cloudflare Worker, OpenAI</span></footer>
   </body>
 </html>

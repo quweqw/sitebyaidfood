@@ -4,14 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#151515">
-    <meta name="app-build" content="20260610-handoff">
+    <meta name="app-build" content="20260612-cloud-core">
     <title>AI Food App</title>
-    <meta name="description" content="Браузерная версия AI Food для приватного локального backend через RadminVPN.">
+    <meta name="description" content="Браузерная версия AI Food с облачным профилем, распознаванием блюд и персональным рационом.">
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
     <link rel="preload" href="assets/fonts/Idiqlat-Regular.ttf" as="font" type="font/ttf" crossorigin>
-    <link rel="stylesheet" href="src/styles.css?v=20260610-handoff">
+    <link rel="stylesheet" href="src/styles.css?v=20260612-cloud-core">
     <script src="config.js"></script>
-    <script type="module" src="src/app.js?v=20260610-handoff"></script>
+    <script type="module" src="src/app.js?v=20260612-cloud-core"></script>
   </head>
   <body>
     <div id="authGate" class="welcome-screen" hidden>
@@ -30,45 +30,6 @@
       </section>
     </div>
 
-    <div id="connectionGate" class="connection-gate" hidden>
-      <header class="mobile-topbar">
-        <span class="brand-button">
-          <span class="brand-dot"></span>
-          <span>AI Food</span>
-        </span>
-        <a class="nav-text" href="https://cremenality.ru/#account" data-back-site>Назад на сайт</a>
-      </header>
-
-      <main class="connection-screen">
-        <section class="connection-hero">
-          <p class="section-label">Подключение</p>
-          <h1>Выберите доступ к локальному AI Food</h1>
-          <p>
-            Сайт уже видит ваш аккаунт. Осталось подключиться к RadminVPN-сети, где работает backend на вашем ПК,
-            затем можно открыть чат.
-          </p>
-          <small id="connectionEmail"></small>
-        </section>
-
-        <section class="vpn-grid single" id="vpnGrid" aria-label="Способ подключения">
-          <button class="vpn-card active" type="button" data-provider="radmin">
-            <span>VPN</span>
-            <strong>RadminVPN</strong>
-            <small>Постоянный IP внутри сети RadminVPN.</small>
-          </button>
-        </section>
-
-        <section class="connection-details" id="connectionDetails">
-          <p class="status-line">Загружаю данные подключения...</p>
-        </section>
-
-        <section class="connection-actions">
-          <button class="app-button filled" type="button" id="openChatButton" disabled>Я подключился, открыть чат</button>
-          <button class="app-button outlined" type="button" id="refreshConnectionButton">Обновить данные</button>
-        </section>
-      </main>
-    </div>
-
     <div id="appShell" class="phone-shell" hidden>
       <section class="app-view active" data-view="chat">
         <header class="mobile-topbar">
@@ -79,7 +40,6 @@
           <nav class="screen-actions" aria-label="Разделы">
             <button type="button" data-view-button="planner" title="Рацион">▦</button>
             <button type="button" data-view-button="settings">Профиль</button>
-            <button type="button" data-open-connection>Подключение</button>
             <a href="https://cremenality.ru/#account" data-back-site>Назад на сайт</a>
           </nav>
         </header>
@@ -127,7 +87,7 @@
         </header>
         <main class="planner-screen">
           <form class="planner-form" id="plannerForm">
-            <label>Дней<input name="days" type="number" min="1" max="14" value="7"></label>
+            <label>Дней<input name="days" type="number" min="1" max="7" value="7"></label>
             <label>Приемов пищи<input name="meals_per_day" type="number" min="1" max="6" value="3"></label>
             <label>Калорий<input name="target_calories" type="number" min="900" max="5000" value="2000"></label>
             <label>Порций<input name="servings" type="number" min="1" max="12" value="1"></label>

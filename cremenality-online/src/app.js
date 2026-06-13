@@ -21,12 +21,6 @@ const state = {
   user: null,
   coreToken: "",
   settings: { ...defaultSettings },
-  connection: {
-    mode: "radmin",
-    coreApiUrl: "http://26.192.1.120:8000",
-    confirmed: false,
-  },
-  connectionInfo: null,
   currentPlan: null,
   selectedPlanDay: 1,
   chats: [],
@@ -37,15 +31,9 @@ const state = {
 
 const elements = {
   authGate: document.querySelector("#authGate"),
-  connectionGate: document.querySelector("#connectionGate"),
   appShell: document.querySelector("#appShell"),
   authGateStatus: document.querySelector("#authGateStatus"),
   retryAuthButton: document.querySelector("#retryAuthButton"),
-  connectionEmail: document.querySelector("#connectionEmail"),
-  vpnGrid: document.querySelector("#vpnGrid"),
-  connectionDetails: document.querySelector("#connectionDetails"),
-  openChatButton: document.querySelector("#openChatButton"),
-  refreshConnectionButton: document.querySelector("#refreshConnectionButton"),
   userEmail: document.querySelector("#userEmail"),
   messages: document.querySelector("#messages"),
   suggestions: document.querySelector("#suggestions"),
@@ -71,7 +59,6 @@ init();
 async function init() {
   consumeInboundToken();
   bindEvents();
-  loadConnection();
   await hydrateAuth();
 }
 
@@ -104,15 +91,6 @@ function bindEvents() {
   document.querySelectorAll("[data-back-site]").forEach((link) => {
     link.href = config.accountUrl || "https://cremenality.ru/#account";
   });
-  document.querySelectorAll("[data-open-connection]").forEach((button) => {
-    button.addEventListener("click", () => showConnectionGate(true));
-  });
-  on(elements.vpnGrid, "click", (event) => {
-    const button = event.target.closest("[data-provider]");
-    if (button) selectConnectionProvider(button.dataset.provider);
-  });
-  on(elements.openChatButton, "click", openConnectedChat);
-  on(elements.refreshConnectionButton, "click", () => showConnectionGate(true));
   on(elements.retryAuthButton, "click", hydrateAuth);
   on(elements.newChatButton, "click", newChat);
   on(elements.clearHistoryButton, "click", clearHistory);
@@ -139,21 +117,15 @@ async function hydrateAuth() {
     state.user = user;
     state.settings = { ...state.settings, email: user.email, ...(user.profile || {}) };
     if (elements.userEmail) elements.userEmail.textContent = user.email;
-    if (elements.connectionEmail) elements.connectionEmail.textContent = user.email;
     loadLocalState();
     fillSettingsForm();
     renderChat();
     renderHistory();
     setGateStatus("");
-    if (needsConnectionGate()) {
-      await showConnectionGate();
-    } else {
-      showAppShell();
-    }
+    showAppShell();
   } catch {
     state.user = null;
     setHidden(elements.authGate, false);
-    setHidden(elements.connectionGate, true);
     setHidden(elements.appShell, true);
     setGateStatus("Активная сессия не найдена.");
   }
@@ -183,175 +155,47 @@ async function logout() {
     state.coreToken = "";
     sessionStorage.removeItem("aifood_access_token");
     setHidden(elements.appShell, true);
-    setHidden(elements.connectionGate, true);
     setHidden(elements.authGate, false);
   }
 }
 
 function showAppShell() {
   setHidden(elements.authGate, true);
-  setHidden(elements.connectionGate, true);
   setHidden(elements.appShell, false);
   renderChat();
   setView("chat");
 }
 
-async function showConnectionGate(forceRefresh = false) {
-  if (!elements.connectionGate || !elements.connectionDetails || !elements.openChatButton) {
-    showAppShell();
-    return;
-  }
-  setHidden(elements.authGate, true);
-  setHidden(elements.appShell, true);
-  setHidden(elements.connectionGate, false);
-  elements.openChatButton.disabled = true;
-  elements.connectionDetails.innerHTML = `<p class="status-line">Загружаю данные подключения...</p>`;
-  if (forceRefresh) state.connectionInfo = null;
-  await loadConnectionInfo();
-  const defaultProvider = state.connection.mode || state.connectionInfo?.default_provider || "radmin";
-  selectConnectionProvider(defaultProvider);
-}
-
-function needsConnectionGate() {
-  return !state.connection.confirmed || !state.connection.coreApiUrl;
-}
-
-async function loadConnectionInfo() {
-  if (state.connectionInfo) return state.connectionInfo;
-  try {
-    state.connectionInfo = await authRequest("/connection-info");
-  } catch {
-    state.connectionInfo = fallbackConnectionInfo();
-  }
-  return state.connectionInfo;
-}
-
-function fallbackConnectionInfo() {
-  return {
-    default_provider: "radmin",
-    providers: [
-      {
-        id: "radmin",
-        title: "RadminVPN",
-        badge: "VPN",
-        recommended: true,
-        core_api_url: "http://26.192.1.120:8000",
-        fields: [
-          { label: "IP ПК", value: "26.192.1.120" },
-          { label: "Логин", value: "aifoodwebapp" },
-          { label: "Пароль", value: "[Задай secret CONNECTION_RADMIN_PASSWORD]", secret: true },
-        ],
-        steps: [
-          "Открой RadminVPN и подключись к сети AI Food.",
-          "Убедись, что backend на ПК запущен на 0.0.0.0:8000.",
-          "Убедись, что Windows Firewall пропускает входящие TCP 8000 для RadminVPN.",
-          "После подключения нажми «Я подключился, открыть чат».",
-        ],
-        note: "HTTPS-сайт может заблокировать HTTP-запрос к 26.192.1.120:8000. Если чат не отправляет сообщения, понадобится HTTPS-домен для Radmin backend.",
-      },
-    ],
-  };
-}
-
-function selectConnectionProvider(providerId) {
-  const providers = state.connectionInfo?.providers || [];
-  const provider = providers.find((item) => item.id === providerId) || providers.find((item) => item.recommended) || providers[0];
-  if (!provider) return;
-  state.connection.mode = provider.id;
-  state.connection.coreApiUrl = String(provider.core_api_url || "").trim().replace(/\/$/, "");
-  document.querySelectorAll("[data-provider]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.provider === provider.id);
-  });
-  renderConnectionDetails(provider);
-}
-
-function renderConnectionDetails(provider) {
-  const fields = (provider.fields || []).map((field) => `
-    <div class="connection-field">
-      <span>${escapeHtml(field.label)}</span>
-      <strong>${escapeHtml(field.value || "-")}</strong>
-    </div>
-  `).join("");
-  const steps = (provider.steps || []).map((step) => `<li>${escapeHtml(step)}</li>`).join("");
-  const joinLink = provider.join_url
-    ? `<a class="inline-vpn-link" href="${escapeHtml(provider.join_url)}" target="_blank" rel="noreferrer">Открыть установку</a>`
-    : "";
-  elements.connectionDetails.innerHTML = `
-    <div class="connection-detail-head">
-      <span>${escapeHtml(provider.badge || "VPN")}</span>
-      <h2>${escapeHtml(provider.title)}</h2>
-    </div>
-    <div class="connection-fields">${fields}</div>
-    <ol class="connection-steps">${steps}</ol>
-    <p class="connection-note">${escapeHtml(provider.note || "")}</p>
-    ${joinLink}
-  `;
-  elements.openChatButton.disabled = !state.connection.coreApiUrl || state.connection.coreApiUrl.includes("[");
-}
-
-function openConnectedChat() {
-  if (!state.connection.coreApiUrl || state.connection.coreApiUrl.includes("[")) {
-    elements.connectionDetails.insertAdjacentHTML("beforeend", `<p class="status-line error">Сначала нужно заполнить реальные данные подключения в Auth Worker.</p>`);
-    return;
-  }
-  state.connection.confirmed = true;
-  persistConnection();
-  showAppShell();
-}
-
 async function authRequest(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
   const response = await fetch(`${authApiBaseUrl}${path}`, {
     method: options.method || "GET",
     credentials: "include",
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(state.coreToken ? { Authorization: `Bearer ${state.coreToken}` } : {}),
       ...(options.headers || {}),
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: isFormData ? options.body : options.body ? JSON.stringify(options.body) : undefined,
+    signal: AbortSignal.timeout(options.timeoutMs || config.requestTimeoutMs || 180000),
   });
+  if (response.status === 401 && path !== "/auth/refresh" && options.retryAuth !== false) {
+    const refreshed = await authRequest("/auth/refresh", {
+      method: "POST",
+      headers: { "X-AI-Food-Client": "native" },
+      body: {},
+      retryAuth: false,
+    });
+    state.coreToken = refreshed.access_token || "";
+    return authRequest(path, { ...options, retryAuth: false });
+  }
   const body = await parseResponse(response);
   if (!response.ok) throw apiError(response.status, body);
   return body;
 }
 
 async function coreRequest(path, options = {}) {
-  const baseUrl = state.connection.coreApiUrl.replace(/\/$/, "");
-  if (!baseUrl) throw new Error("Сначала укажите адрес локального backend.");
-  const token = await getCoreToken();
-  const isFormData = options.body instanceof FormData;
-  const requestOptions = {
-    method: options.method || "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "X-AI-Food-Client": "native",
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      ...(options.headers || {}),
-    },
-    body: isFormData ? options.body : options.body ? JSON.stringify(options.body) : undefined,
-    signal: AbortSignal.timeout(options.timeoutMs || config.requestTimeoutMs || 120000),
-  };
-  let response = await fetch(`${baseUrl}${path}`, requestOptions);
-  if (response.status === 401) {
-    state.coreToken = "";
-    requestOptions.headers.Authorization = `Bearer ${await getCoreToken()}`;
-    response = await fetch(`${baseUrl}${path}`, requestOptions);
-  }
-  const body = await parseResponse(response);
-  if (!response.ok) throw apiError(response.status, body);
-  return body;
-}
-
-async function getCoreToken() {
-  if (state.coreToken) return state.coreToken;
-  const response = await authRequest("/auth/refresh", {
-    method: "POST",
-    headers: { "X-AI-Food-Client": "native" },
-    body: {},
-  });
-  state.coreToken = response.access_token || "";
-  if (!state.coreToken) throw new Error("Auth API не вернул токен для локального backend.");
-  return state.coreToken;
+  return authRequest(path, options);
 }
 
 async function sendMessage(rawText) {
@@ -368,7 +212,7 @@ async function sendMessage(rawText) {
   state.busy = true;
   renderChat();
   try {
-    const response = await coreRequest("/chat/message", {
+    const response = await authRequest("/api/ai/chat", {
       method: "POST",
       body: chatPayload(text),
       timeoutMs: 120000,
@@ -631,16 +475,16 @@ async function saveSettings(event) {
   event.preventDefault();
   syncSettingsFromForm();
   persistSettings();
-  setSettingsStatus("Сохраняю локально и на backend...");
+  setSettingsStatus("Сохраняю профиль в облаке...");
   try {
     await coreRequest("/profile", {
       method: "PUT",
-      body: backendProfilePayload(),
+      body: cloudProfilePayload(),
       timeoutMs: 60000,
     });
     setSettingsStatus("Профиль сохранен.");
   } catch (error) {
-    setSettingsStatus(`Локально сохранено. Backend: ${connectionErrorText(error)}`, true);
+    setSettingsStatus(`Локальная копия сохранена. Облачный API: ${connectionErrorText(error)}`, true);
   }
 }
 
@@ -655,8 +499,12 @@ function setView(name) {
 }
 
 function loadLocalState() {
-  state.settings = { ...defaultSettings, ...readJsonStorage(settingsKey(), {}), email: state.user.email };
-  state.connection = { ...state.connection, ...readJsonStorage("aifood_web_connection", {}) };
+  state.settings = {
+    ...defaultSettings,
+    ...readJsonStorage(settingsKey(), {}),
+    ...state.settings,
+    email: state.user.email,
+  };
   const chats = readJsonStorage(chatsKey(), []);
   state.chats = Array.isArray(chats) ? chats.filter((chat) => Array.isArray(chat.messages)) : [];
   state.currentChatId = state.chats.at(-1)?.id || newId();
@@ -968,7 +816,7 @@ function syncSettingsFromForm() {
   };
 }
 
-function backendProfilePayload() {
+function cloudProfilePayload() {
   const goalMap = { normal: "balanced", cut: "weight_loss", bulk: "muscle_gain" };
   return {
     name: state.settings.name,
@@ -987,18 +835,6 @@ function backendProfilePayload() {
     excluded_ingredients: state.settings.excluded_products,
     push_notifications: false,
   };
-}
-
-function loadConnection() {
-  state.connection = {
-    ...state.connection,
-    coreApiUrl: config.defaultCoreApiBaseUrl || "",
-    ...readJsonStorage("aifood_web_connection", {}),
-  };
-}
-
-function persistConnection() {
-  localStorage.setItem("aifood_web_connection", JSON.stringify(state.connection));
 }
 
 function persistSettings() {
@@ -1083,7 +919,7 @@ function setSettingsStatus(text, isError = false) {
 }
 
 function connectionErrorText(error) {
-  return error?.message || "Не удалось подключиться к локальному backend.";
+  return error?.message || "Облачный API временно недоступен.";
 }
 
 function apiError(status, body) {

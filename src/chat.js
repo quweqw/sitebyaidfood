@@ -78,6 +78,6 @@ function setFormDisabled(disabled) {
 function modelErrorMessage(error) {
   if (error.status === 401) return "Сессия истекла. Войдите заново и повторите запрос.";
   if (error.status === 403) return "Аккаунт не имеет доступа к этой функции или заблокирован.";
-  if (error.status >= 500 || error.status === 0) return "Модель сейчас недоступна. Проверьте backend, Ollama и Cloudflare Tunnel.";
+  if (error.status >= 500 || error.status === 0) return "Модель сейчас недоступна. Проверьте OpenAI API и настройки Cloudflare Worker.";
   return error.message || "Не удалось получить ответ модели.";
 }

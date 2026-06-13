@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { appConfig } from "./config.js";
-import { clearAuth, clearPendingEmail, isAdmin, isAuthenticated, saveAuth, savePendingEmail, saveUser, session, withAccessToken } from "./session.js";
+import { clearAuth, clearPendingEmail, isAuthenticated, isStaff, saveAuth, savePendingEmail, saveUser, session, withAccessToken } from "./session.js";
 import { formValues, setStatus } from "./ui.js";
 
 const authStatus = document.querySelector("#authStatus");
@@ -25,22 +25,22 @@ export function initAuth() {
 
 export function updateAuthUi() {
   const authenticated = isAuthenticated();
-  const admin = isAdmin();
+  const staff = isStaff();
   sessionLabel.textContent = session.email || "Гость";
   chatGate.hidden = authenticated;
   chatShell.hidden = !authenticated;
   logoutButton.hidden = !authenticated;
-  adminNav.hidden = !admin;
+  adminNav.hidden = !staff;
   accountSession.hidden = !authenticated;
   authForms.hidden = authenticated;
-  accountAdminLink.hidden = !admin;
+  accountAdminLink.hidden = !staff;
   document.querySelectorAll("[data-chat-link]").forEach((link) => {
     link.href = authenticated ? withAccessToken(appConfig.chatAppUrl) : appConfig.chatAppUrl;
   });
 
   if (authenticated) {
     accountSessionEmail.textContent = session.email || "Аккаунт активен";
-    accountSessionRole.textContent = admin ? "Роль: admin" : "Роль: user";
+    accountSessionRole.textContent = `Роль: ${session.user?.role || "user"}`;
   }
 
   window.dispatchEvent(new CustomEvent("auth:changed"));

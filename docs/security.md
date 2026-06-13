@@ -69,4 +69,4 @@ Recommended user shape:
 - Add backend-side self-delete prevention for admin accounts.
 - Add backups before enabling permanent user deletion.
 - Keep public auth/users on Cloudflare Worker + D1 so registration and login do not depend on the local PC.
-- Keep resource-heavy local AI endpoints separate from auth; expose them only through RadminVPN or another private network for personal use.
+- Keep `OPENAI_API_KEY` only in Cloudflare Worker secrets. Browsers and mobile clients call `api.cremenality.ru`; they never receive the provider key.

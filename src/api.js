@@ -23,21 +23,47 @@ export const api = {
   confirmPasswordReset: (email, code, newPassword) => request("/auth/password-reset/confirm", { method: "POST", auth: false, body: { email, code, new_password: newPassword, confirm_password: newPassword } }),
   me: () => request("/auth/me", { method: "GET", auth: true }),
   logout: () => request("/auth/logout", { method: "POST", auth: true, retryOnUnauthorized: false }),
-  chatMessage: (payload) => request("/chat/message", { method: "POST", auth: true, body: payload, timeoutMs: 120000, target: CORE_API }),
+  chatMessage: (payload) => request("/api/ai/chat", { method: "POST", auth: true, body: payload, timeoutMs: 120000, target: AUTH_API }),
+  createPartnership: (payload) => request("/api/partnership/requests", { method: "POST", auth: true, body: payload }),
+  partnershipThreads: () => request("/api/partnership/threads", { method: "GET", auth: true }),
+  partnershipThread: (threadId, guestToken = "") => request(`/api/partnership/threads/${encodeURIComponent(threadId)}`, {
+    method: "GET",
+    auth: true,
+    headers: guestToken ? { "X-Thread-Token": guestToken } : {},
+  }),
+  addPartnershipMessage: (threadId, message, guestToken = "") => request(`/api/partnership/threads/${encodeURIComponent(threadId)}/messages`, {
+    method: "POST",
+    auth: true,
+    body: { message },
+    headers: guestToken ? { "X-Thread-Token": guestToken } : {},
+  }),
+  createSupportTicket: (payload) => request("/api/support/tickets", { method: "POST", auth: true, body: payload }),
+  supportTickets: () => request("/api/support/tickets", { method: "GET", auth: true }),
+  supportTicket: (ticketId) => request(`/api/support/tickets/${encodeURIComponent(ticketId)}`, { method: "GET", auth: true }),
+  addSupportMessage: (ticketId, message) => request(`/api/support/tickets/${encodeURIComponent(ticketId)}/messages`, { method: "POST", auth: true, body: { message } }),
   adminUsers: () => request("/admin/users", { method: "GET", auth: true }),
   setUserBlocked: (userId, blocked) => request(`/admin/users/${encodeURIComponent(userId)}/block`, { method: "PATCH", auth: true, body: { blocked } }),
+  setUserRole: (userId, role) => request(`/admin/users/${encodeURIComponent(userId)}/role`, { method: "PATCH", auth: true, body: { role } }),
   deleteUser: (userId) => request(`/admin/users/${encodeURIComponent(userId)}`, { method: "DELETE", auth: true }),
+  adminPartnerships: () => request("/admin/crm/partnerships", { method: "GET", auth: true }),
+  adminReplyPartnership: (threadId, message) => request(`/admin/crm/partnerships/${encodeURIComponent(threadId)}/messages`, { method: "POST", auth: true, body: { message } }),
+  adminUpdatePartnership: (threadId, status) => request(`/admin/crm/partnerships/${encodeURIComponent(threadId)}`, { method: "PATCH", auth: true, body: { status } }),
+  adminSupportTickets: () => request("/admin/crm/support", { method: "GET", auth: true }),
+  adminReplySupport: (ticketId, message) => request(`/admin/crm/support/${encodeURIComponent(ticketId)}/messages`, { method: "POST", auth: true, body: { message } }),
+  adminUpdateSupport: (ticketId, status, priority = "normal") => request(`/admin/crm/support/${encodeURIComponent(ticketId)}`, { method: "PATCH", auth: true, body: { status, priority } }),
+  adminCrmOutbox: () => request("/admin/crm/outbox", { method: "GET", auth: true }),
+  retryCrm: () => request("/api/crm/retry-failed", { method: "POST", auth: true }),
 };
 
 async function request(path, options = {}) {
-  const { method = "GET", body, auth = true, timeoutMs = appConfig.requestTimeoutMs, retryOnUnauthorized = true, target = AUTH_API } = options;
-  const response = await fetchWithTimeout(path, { method, body, auth, timeoutMs, target });
+  const { method = "GET", body, auth = true, headers = {}, timeoutMs = appConfig.requestTimeoutMs, retryOnUnauthorized = true, target = AUTH_API } = options;
+  const response = await fetchWithTimeout(path, { method, body, auth, headers, timeoutMs, target });
   const parsed = await parseResponse(response);
 
   if (response.status === 401 && auth && retryOnUnauthorized) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
-      const retry = await fetchWithTimeout(path, { method, body, auth, timeoutMs, target });
+      const retry = await fetchWithTimeout(path, { method, body, auth, headers, timeoutMs, target });
       const retryParsed = await parseResponse(retry);
       if (!retry.ok) throw toApiError(retryParsed, retry.status);
       return retryParsed;
@@ -48,7 +74,7 @@ async function request(path, options = {}) {
   return parsed;
 }
 
-async function fetchWithTimeout(path, { method, body, auth, timeoutMs, target }) {
+async function fetchWithTimeout(path, { method, body, auth, headers, timeoutMs, target }) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   const baseUrl = apiBaseUrl(target);
@@ -57,7 +83,7 @@ async function fetchWithTimeout(path, { method, body, auth, timeoutMs, target })
       method,
       credentials: "include",
       signal: controller.signal,
-      headers: buildHeaders(auth),
+      headers: { ...buildHeaders(auth), ...headers },
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch (error) {
@@ -120,6 +146,9 @@ function localizeError(code, fallback) {
     EMAIL_SEND_FAILED: "Не удалось отправить письмо. Проверьте настройки Resend и попробуйте еще раз.",
     EMAIL_PROVIDER_NOT_CONFIGURED: "Почтовый провайдер API не настроен. Проверьте RESEND_API_KEY и EMAIL_FROM.",
     SECRET_KEY_NOT_CONFIGURED: "SECRET_KEY не настроен на сервере авторизации.",
+    CONSENT_REQUIRED: "Подтвердите согласие на обработку обращения.",
+    TURNSTILE_FAILED: "Проверка защиты от спама не пройдена. Обновите страницу и попробуйте ещё раз.",
+    SPAM_REJECTED: "Запрос отклонён защитой от спама.",
   };
   return messages[code] || fallback || "Ошибка API";
 }

@@ -3,6 +3,7 @@ import { appConfig } from "./config.js";
 import { initAdmin } from "./admin.js";
 import { initAuth } from "./auth.js";
 import { initChat } from "./chat.js";
+import { initCrm } from "./crm.js";
 import { renderIcons } from "./icons.js";
 import { initRouter } from "./router.js";
 
@@ -14,6 +15,7 @@ initRouter();
 initAuth();
 initChat();
 initAdmin();
+initCrm();
 checkApiStatus();
 
 async function checkApiStatus() {

@@ -5,5 +5,6 @@ window.CREMENALITY_CONFIG = {
   chatAppUrl: "https://cremenality.online/?v=20260610-handoff",
   androidDownloadUrl: "https://github.com/quweqw/AI-Food/releases",
   githubUrl: "https://github.com/quweqw/AI-Food",
+  turnstileSiteKey: "",
   chatPreset: "Ты - AI Food, помощник по питанию. Отвечай конкретно, учитывай цель, калории, аллергены и исключенные продукты."
 };

@@ -1,3 +1,5 @@
+import { routeCloudCore } from "./cloud-core.js";
+
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
@@ -36,6 +38,9 @@ export default {
       });
     }
   },
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(retryDueCrmEvents(env));
+  },
 };
 
 async function route(request, env) {
@@ -44,7 +49,7 @@ async function route(request, env) {
   const path = normalizePath(url.pathname);
 
   if (request.method === "GET" && path === "/") {
-    return json({ status: "AI Food Auth API running" });
+    return json({ status: "AI Food Cloud API running" });
   }
 
   await enforceRateLimit(env, request, "general", intEnv(env, "RATE_LIMIT_GENERAL_PER_MINUTE", 300));
@@ -80,9 +85,6 @@ async function route(request, env) {
     const user = await currentActiveUser(request, env);
     return json(publicUser(user, env));
   }
-  if (request.method === "GET" && path === "/connection-info") {
-    return connectionInfo(request, env);
-  }
   if (request.method === "POST" && path === "/auth/password-reset/request") {
     await enforceRateLimit(env, request, "auth:password-reset-request", intEnv(env, "RATE_LIMIT_AUTH_PER_MINUTE", 20));
     return requestPasswordReset(request, env);
@@ -95,14 +97,94 @@ async function route(request, env) {
     await enforceRateLimit(env, request, "auth:change-password", intEnv(env, "RATE_LIMIT_AUTH_PER_MINUTE", 20));
     return changePassword(request, env);
   }
+  if (request.method === "POST" && path === "/api/ai/chat") {
+    await enforceRateLimit(env, request, "ai:chat", intEnv(env, "RATE_LIMIT_AI_PER_MINUTE", 20));
+    return openAiChat(request, env);
+  }
+  if (request.method === "POST" && path === "/chat/message") {
+    await enforceRateLimit(env, request, "ai:chat", intEnv(env, "RATE_LIMIT_AI_PER_MINUTE", 20));
+    return openAiChat(request, env);
+  }
+
+  const cloudCoreResponse = await routeCloudCore(request, env, path, {
+    ApiException,
+    currentActiveUser,
+    rateLimit: (scope) => enforceRateLimit(
+      env,
+      request,
+      scope,
+      intEnv(env, "RATE_LIMIT_AI_PER_MINUTE", 20),
+    ),
+  });
+  if (cloudCoreResponse) return cloudCoreResponse;
+
+  if (request.method === "POST" && path === "/api/partnership/requests") {
+    await enforceRateLimit(env, request, "partnership:create", intEnv(env, "RATE_LIMIT_CRM_PER_MINUTE", 10));
+    return createPartnershipRequest(request, env);
+  }
+  if (request.method === "POST" && path === "/api/crm/users/sync") {
+    await enforceRateLimit(env, request, "crm:user-sync", intEnv(env, "RATE_LIMIT_CRM_PER_MINUTE", 10));
+    return syncCurrentUserToCrm(request, env);
+  }
+  if (request.method === "GET" && path === "/api/partnership/threads") {
+    return partnershipThreads(request, env);
+  }
+  if (request.method === "GET" && /^\/api\/partnership\/threads\/[^/]+$/.test(path)) {
+    return partnershipThread(request, env, decodeURIComponent(path.split("/")[4]));
+  }
+  if (request.method === "POST" && /^\/api\/partnership\/threads\/[^/]+\/messages$/.test(path)) {
+    await enforceRateLimit(env, request, "partnership:message", intEnv(env, "RATE_LIMIT_CRM_PER_MINUTE", 10));
+    return addPartnershipMessage(request, env, decodeURIComponent(path.split("/")[4]));
+  }
+  if (request.method === "POST" && path === "/api/support/tickets") {
+    await enforceRateLimit(env, request, "support:create", intEnv(env, "RATE_LIMIT_CRM_PER_MINUTE", 10));
+    return createSupportTicket(request, env);
+  }
+  if (request.method === "GET" && path === "/api/support/tickets") {
+    return supportTickets(request, env);
+  }
+  if (request.method === "GET" && /^\/api\/support\/tickets\/[^/]+$/.test(path)) {
+    return supportTicket(request, env, decodeURIComponent(path.split("/")[4]));
+  }
+  if (request.method === "POST" && /^\/api\/support\/tickets\/[^/]+\/messages$/.test(path)) {
+    await enforceRateLimit(env, request, "support:message", intEnv(env, "RATE_LIMIT_CRM_PER_MINUTE", 10));
+    return addSupportMessage(request, env, decodeURIComponent(path.split("/")[4]));
+  }
   if (request.method === "GET" && path === "/admin/users") {
     return adminUsers(request, env);
   }
   if (request.method === "PATCH" && /^\/admin\/users\/[^/]+\/block$/.test(path)) {
     return adminSetBlocked(request, env, decodeURIComponent(path.split("/")[3]));
   }
+  if (request.method === "PATCH" && /^\/admin\/users\/[^/]+\/role$/.test(path)) {
+    return adminSetRole(request, env, decodeURIComponent(path.split("/")[3]));
+  }
   if (request.method === "DELETE" && /^\/admin\/users\/[^/]+$/.test(path)) {
     return adminDeleteUser(request, env, decodeURIComponent(path.split("/")[3]));
+  }
+  if (request.method === "GET" && path === "/admin/crm/partnerships") {
+    return adminPartnershipThreads(request, env);
+  }
+  if (request.method === "POST" && /^\/admin\/crm\/partnerships\/[^/]+\/messages$/.test(path)) {
+    return adminAddPartnershipMessage(request, env, decodeURIComponent(path.split("/")[4]));
+  }
+  if (request.method === "PATCH" && /^\/admin\/crm\/partnerships\/[^/]+$/.test(path)) {
+    return adminUpdatePartnership(request, env, decodeURIComponent(path.split("/")[4]));
+  }
+  if (request.method === "GET" && path === "/admin/crm/support") {
+    return adminSupportTickets(request, env);
+  }
+  if (request.method === "POST" && /^\/admin\/crm\/support\/[^/]+\/messages$/.test(path)) {
+    return adminAddSupportMessage(request, env, decodeURIComponent(path.split("/")[4]));
+  }
+  if (request.method === "PATCH" && /^\/admin\/crm\/support\/[^/]+$/.test(path)) {
+    return adminUpdateSupportTicket(request, env, decodeURIComponent(path.split("/")[4]));
+  }
+  if (request.method === "POST" && path === "/api/crm/retry-failed") {
+    return retryFailedCrmEvents(request, env);
+  }
+  if (request.method === "GET" && path === "/admin/crm/outbox") {
+    return adminCrmOutbox(request, env);
   }
 
   throw new ApiException(404, "NOT_FOUND", "Endpoint not found");
@@ -193,6 +275,7 @@ async function verifyEmail(request, env) {
   if (truthy(user.is_blocked)) throw new ApiException(403, "ACCOUNT_BLOCKED", "Account is blocked");
   await verifyEmailCode(env, user, code);
   const fresh = await requireUserByEmail(env, email);
+  await queueUserContactSync(env, fresh, clientSource(request));
   return authResponse(request, env, fresh, "Authenticated");
 }
 
@@ -411,41 +494,907 @@ async function changePassword(request, env) {
   return withAuthCookies(request, env, json({ message: "Password updated" }), null, null);
 }
 
-async function connectionInfo(request, env) {
+async function openAiChat(request, env) {
   const user = await currentActiveUser(request, env);
-  if (boolEnv(env, "CONNECTION_INFO_REQUIRE_ADMIN", false) && userRole(user, env) !== "admin") {
-    throw new ApiException(403, "ADMIN_REQUIRED", "Connection details are available only to admins");
-  }
+  const data = await readJson(request);
+  const message = cleanText(data.message, 4000, "message");
+  const history = Array.isArray(data.history) ? data.history.slice(-12) : [];
+  const apiKey = stringEnv(env, "OPENAI_API_KEY", "");
+  if (!apiKey) throw new ApiException(503, "OPENAI_NOT_CONFIGURED", "OpenAI API is not configured");
 
-  const providers = [];
-  if (boolEnv(env, "CONNECTION_RADMIN_ENABLED", true)) {
-    const ip = stringEnv(env, "CONNECTION_RADMIN_IP", "26.192.1.120");
-    providers.push({
-      id: "radmin",
-      title: "RadminVPN",
-      badge: "VPN",
-      recommended: true,
-      core_api_url: stringEnv(env, "CONNECTION_RADMIN_CORE_API_URL", ip.startsWith("[") ? "" : `http://${ip}:8000`),
-      fields: [
-        { label: "IP ПК", value: ip },
-        { label: "Логин", value: stringEnv(env, "CONNECTION_RADMIN_LOGIN", "aifoodwebapp") },
-        { label: "Пароль", value: stringEnv(env, "CONNECTION_RADMIN_PASSWORD", "[Задай secret CONNECTION_RADMIN_PASSWORD]"), secret: true },
-      ],
-      steps: [
-        "Открой RadminVPN и подключись к сети AI Food.",
-        "Убедись, что на ПК запущен backend на 0.0.0.0:8000.",
-        "Убедись, что Windows Firewall пропускает входящие TCP 8000 для RadminVPN.",
-        "После подключения нажми «Я подключился, открыть чат».",
-      ],
-      note: "Важно: HTTPS-сайт может заблокировать HTTP-запрос к 26.192.1.120:8000. Если браузер не даст отправлять сообщения, понадобится HTTPS-домен для Radmin backend.",
-    });
+  const storedProfile = parseProfile(user.profile_json);
+  const profile = {
+    age: boundedNumber(data.age ?? storedProfile.age, 10, 100, 25),
+    gender: cleanOptionalText(data.gender ?? storedProfile.gender ?? storedProfile.sex, 20) || "male",
+    height_cm: boundedNumber(data.height ?? data.height_cm ?? storedProfile.height ?? storedProfile.height_cm, 80, 250, 175),
+    weight_kg: boundedNumber(data.weight ?? data.weight_kg ?? storedProfile.weight ?? storedProfile.weight_kg, 25, 350, 70),
+    activity_level: cleanOptionalText(data.activity_level ?? storedProfile.activity_level, 40) || "moderate",
+    daily_calories: boundedNumber(
+      data.daily_calories ?? data.target_calories ?? storedProfile.daily_calories ?? storedProfile.target_calories,
+      900,
+      5000,
+      2000,
+    ),
+    diet_type: cleanOptionalText(data.diet_type ?? storedProfile.diet_type, 40) || "normal",
+    meals_per_day: boundedNumber(data.meals_per_day ?? storedProfile.meals_per_day, 1, 6, 3),
+    allergens: cleanStringList(data.allergens ?? storedProfile.allergens ?? storedProfile.allergies, 30, 80),
+    favorite_products: cleanStringList(
+      data.favorite_products ?? storedProfile.favorite_products ?? storedProfile.preferred_ingredients,
+      30,
+      80,
+    ),
+    disliked_products: cleanStringList(
+      data.disliked_products ?? storedProfile.disliked_products ?? storedProfile.disliked_ingredients,
+      30,
+      80,
+    ),
+    excluded_products: cleanStringList(
+      data.excluded_products ?? storedProfile.excluded_products ?? storedProfile.excluded_ingredients,
+      30,
+      80,
+    ),
+  };
+  const input = history
+    .map((item) => ({
+      role: item?.role === "assistant" ? "assistant" : "user",
+      content: cleanOptionalText(item?.content, 4000),
+    }))
+    .filter((item) => item.content);
+  input.push({ role: "user", content: message });
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: stringEnv(env, "OPENAI_MODEL", "gpt-5.4-mini"),
+      instructions: buildAiFoodInstructions(profile),
+      input,
+      max_output_tokens: intEnv(env, "OPENAI_MAX_OUTPUT_TOKENS", 900),
+      store: false,
+      metadata: { app: "ai-food" },
+    }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.error("OpenAI request failed", response.status, JSON.stringify(body).slice(0, 800));
+    throw new ApiException(502, "OPENAI_REQUEST_FAILED", "AI provider could not complete the request");
   }
+  const output = extractOpenAiText(body);
+  if (!output) throw new ApiException(502, "OPENAI_EMPTY_RESPONSE", "AI provider returned an empty response");
+  return json({ response: output, provider: "openai", model: body.model || stringEnv(env, "OPENAI_MODEL", "gpt-5.4-mini") });
+}
+
+async function createPartnershipRequest(request, env) {
+  const data = await readJson(request);
+  if (data.consent !== true) throw new ApiException(400, "CONSENT_REQUIRED", "Consent is required");
+  rejectHoneypot(data);
+  await verifyTurnstile(env, request, data.turnstile_token, "partnership");
+  const user = await optionalActiveUser(request, env);
+  const email = user?.email || normalizeEmail(data.email);
+  if (!isEmail(email)) throw new ApiException(400, "INVALID_EMAIL", "Valid email is required");
+
+  const cooperationType = enumValue(data.cooperation_type, ["small_business", "enterprise_api"], "cooperation_type");
+  const authorName = cleanText(data.author_name, 120, "author_name");
+  const companyName = cleanOptionalText(data.company_name, 160);
+  const subject = cleanText(data.subject, 180, "subject");
+  const proposalMessage = cleanText(data.proposal_message, 6000, "proposal_message");
+  ensureMinimumLength(subject, 3, "subject");
+  ensureMinimumLength(proposalMessage, 10, "proposal_message");
+  const preferredContact = enumValue(data.preferred_contact || "email", ["email", "telegram", "phone", "other"], "preferred_contact");
+  const now = new Date().toISOString();
+  const threadId = crypto.randomUUID();
+  const messageId = crypto.randomUUID();
+  const guestToken = user ? "" : randomBase64Url(32);
+  const outboxId = crypto.randomUUID();
+  const payload = {
+    cooperation_type: cooperationType,
+    email,
+    author_name: authorName,
+    company_name: companyName,
+    subject,
+    proposal_message: proposalMessage,
+    preferred_contact: preferredContact,
+    user_id: user?.id || null,
+    thread_id: threadId,
+    status: "new",
+    source: "website_cooperation",
+    created_at: now,
+  };
+
+  await env.DB.batch([
+    env.DB.prepare(`
+      INSERT INTO partnership_threads (
+        id, user_id, email, cooperation_type, author_name, company_name, subject,
+        preferred_contact, status, source, guest_token_hash, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', 'website_cooperation', ?, ?, ?)
+    `).bind(
+      threadId, user?.id || null, email, cooperationType, authorName, companyName || null,
+      subject, preferredContact, guestToken ? await sha256Hex(guestToken) : null, now, now,
+    ),
+    env.DB.prepare(`
+      INSERT INTO partnership_messages (id, thread_id, sender_type, sender_name, message, is_read, created_at)
+      VALUES (?, ?, 'user', ?, ?, 0, ?)
+    `).bind(messageId, threadId, authorName, proposalMessage, now),
+    outboxInsert(env, outboxId, "partnership_created", "partnership", threadId, payload, now),
+  ]);
+  await trySyncCrmEvent(env, outboxId);
+  await writeAudit(env, user, "partnership.created", "partnership", threadId, {
+    cooperation_type: cooperationType,
+    email,
+  });
+  const emailSent = await sendCrmConfirmationEmail(
+    env,
+    email,
+    `Заявка AI Food принята: ${subject}`,
+    `Мы получили вашу заявку «${subject}». Ответ появится в чате с представителем и придет на этот email.`,
+  );
+  await notifyTeam(
+    env,
+    `Новая заявка на сотрудничество: ${subject}`,
+    `${authorName} (${email})\n${proposalMessage}`,
+    "CRM_MANAGER_EMAILS",
+  );
 
   return json({
-    user: publicUser(user, env),
-    providers,
-    default_provider: stringEnv(env, "CONNECTION_DEFAULT_PROVIDER", "radmin"),
+    thread: await getPartnershipThreadRecord(env, threadId),
+    guest_access_token: guestToken || undefined,
+    email_sent: emailSent,
+    message: "Заявка отправлена. Ответ появится в чате и придет на email.",
+  }, 201);
+}
+
+async function partnershipThreads(request, env) {
+  const user = await currentActiveUser(request, env);
+  const rows = await env.DB.prepare(`
+    SELECT id, email, cooperation_type, author_name, company_name, subject, preferred_contact,
+           status, source, crm_sync_status, created_at, updated_at
+    FROM partnership_threads WHERE user_id = ? ORDER BY updated_at DESC LIMIT 100
+  `).bind(user.id).all();
+  return json({ threads: rows.results || [] });
+}
+
+async function partnershipThread(request, env, threadId) {
+  const thread = await requirePartnershipAccess(request, env, threadId);
+  const messages = await env.DB.prepare(`
+    SELECT id, sender_type, sender_name, message, is_read, created_at
+    FROM partnership_messages WHERE thread_id = ? ORDER BY created_at ASC
+  `).bind(threadId).all();
+  const user = await optionalActiveUser(request, env);
+  if (!user || !staffPermissions(user, env).manage_partnerships) {
+    await env.DB.prepare("UPDATE partnership_messages SET is_read = 1 WHERE thread_id = ? AND sender_type = 'manager'")
+      .bind(threadId).run();
+  }
+  return json({ thread: publicPartnershipThread(thread), messages: messages.results || [] });
+}
+
+async function addPartnershipMessage(request, env, threadId) {
+  const thread = await requirePartnershipAccess(request, env, threadId);
+  if (thread.status === "closed") throw new ApiException(409, "THREAD_CLOSED", "This conversation is closed");
+  const user = await optionalActiveUser(request, env);
+  const data = await readJson(request);
+  const message = cleanText(data.message, 6000, "message");
+  const now = new Date().toISOString();
+  const messageId = crypto.randomUUID();
+  const outboxId = crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare(`
+      INSERT INTO partnership_messages (id, thread_id, sender_type, sender_name, message, is_read, created_at)
+      VALUES (?, ?, 'user', ?, ?, 0, ?)
+    `).bind(messageId, threadId, user?.email || thread.author_name || thread.email, message, now),
+    env.DB.prepare("UPDATE partnership_threads SET status = 'in_progress', crm_sync_status = 'pending', updated_at = ? WHERE id = ?").bind(now, threadId),
+    outboxInsert(env, outboxId, "partnership_message", "partnership", threadId, {
+      thread_id: threadId, message, sender_type: "user", status: "in_progress", created_at: now,
+    }, now),
+  ]);
+  await trySyncCrmEvent(env, outboxId);
+  await writeAudit(env, user, "partnership.message.user", "partnership", threadId);
+  return json({ message: "Message sent", id: messageId }, 201);
+}
+
+async function createSupportTicket(request, env) {
+  const user = await currentActiveUser(request, env);
+  const data = await readJson(request);
+  if (data.consent !== true) throw new ApiException(400, "CONSENT_REQUIRED", "Consent is required");
+  rejectHoneypot(data);
+  await verifyTurnstile(env, request, data.turnstile_token, "support");
+  const subject = cleanText(data.subject, 180, "subject");
+  const message = cleanText(data.message, 6000, "message");
+  ensureMinimumLength(subject, 3, "subject");
+  ensureMinimumLength(message, 10, "message");
+  const category = enumValue(
+    data.category || "other",
+    ["account", "ai_chat", "food_recognition", "bug", "other", "general", "billing", "feature", "privacy"],
+    "category",
+  );
+  const now = new Date().toISOString();
+  const ticketId = crypto.randomUUID();
+  const messageId = crypto.randomUUID();
+  const outboxId = crypto.randomUUID();
+  const payload = {
+    ticket_id: ticketId,
+    user_id: user.id,
+    email: user.email,
+    subject,
+    message,
+    category,
+    status: "new",
+    priority: "normal",
+    created_at: now,
+  };
+  await env.DB.batch([
+    env.DB.prepare(`
+      INSERT INTO support_tickets (id, user_id, email, subject, category, status, priority, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 'new', 'normal', ?, ?)
+    `).bind(ticketId, user.id, user.email, subject, category, now, now),
+    env.DB.prepare(`
+      INSERT INTO support_messages (id, ticket_id, sender_type, sender_name, message, is_read, created_at)
+      VALUES (?, ?, 'user', ?, ?, 0, ?)
+    `).bind(messageId, ticketId, user.email, message, now),
+    outboxInsert(env, outboxId, "support_created", "support", ticketId, payload, now),
+  ]);
+  await trySyncCrmEvent(env, outboxId);
+  await writeAudit(env, user, "support.created", "support", ticketId, { category, email: user.email });
+  const emailSent = await sendCrmConfirmationEmail(
+    env,
+    user.email,
+    `Обращение AI Food принято: ${subject}`,
+    `Мы получили ваше обращение «${subject}». Ответ появится в профиле и придет на этот email.`,
+  );
+  await notifyTeam(
+    env,
+    `Новое обращение в поддержку: ${subject}`,
+    `${user.email}\n${message}`,
+    "SUPPORT_MANAGER_EMAILS",
+  );
+  return json({
+    ticket: await getSupportTicketRecord(env, ticketId),
+    email_sent: emailSent,
+    message: "Обращение создано. Подтверждение отправлено на email.",
+  }, 201);
+}
+
+async function supportTickets(request, env) {
+  const user = await currentActiveUser(request, env);
+  const rows = await env.DB.prepare(`
+    SELECT id, email, subject, category, status, priority, crm_sync_status, created_at, updated_at
+    FROM support_tickets WHERE user_id = ? ORDER BY updated_at DESC LIMIT 100
+  `).bind(user.id).all();
+  return json({ tickets: rows.results || [] });
+}
+
+async function supportTicket(request, env, ticketId) {
+  const user = await currentActiveUser(request, env);
+  const ticket = await getSupportTicketRecord(env, ticketId);
+  if (!ticket) throw new ApiException(404, "TICKET_NOT_FOUND", "Support ticket not found");
+  if (ticket.user_id !== user.id && !staffPermissions(user, env).manage_support) {
+    throw new ApiException(403, "FORBIDDEN", "Access denied");
+  }
+  const messages = await env.DB.prepare(`
+    SELECT id, sender_type, sender_name, message, is_read, created_at
+    FROM support_messages WHERE ticket_id = ? ORDER BY created_at ASC
+  `).bind(ticketId).all();
+  if (ticket.user_id === user.id) {
+    await env.DB.prepare("UPDATE support_messages SET is_read = 1 WHERE ticket_id = ? AND sender_type = 'manager'")
+      .bind(ticketId).run();
+  }
+  return json({ ticket, messages: messages.results || [] });
+}
+
+async function addSupportMessage(request, env, ticketId) {
+  const user = await currentActiveUser(request, env);
+  const ticket = await getSupportTicketRecord(env, ticketId);
+  if (!ticket) throw new ApiException(404, "TICKET_NOT_FOUND", "Support ticket not found");
+  if (ticket.user_id !== user.id) throw new ApiException(403, "FORBIDDEN", "Access denied");
+  if (ticket.status === "closed") throw new ApiException(409, "TICKET_CLOSED", "This support ticket is closed");
+  const data = await readJson(request);
+  const message = cleanText(data.message, 6000, "message");
+  const now = new Date().toISOString();
+  const messageId = crypto.randomUUID();
+  const outboxId = crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare(`
+      INSERT INTO support_messages (id, ticket_id, sender_type, sender_name, message, is_read, created_at)
+      VALUES (?, ?, 'user', ?, ?, 0, ?)
+    `).bind(messageId, ticketId, user.email, message, now),
+    env.DB.prepare("UPDATE support_tickets SET status = 'in_progress', crm_sync_status = 'pending', updated_at = ? WHERE id = ?").bind(now, ticketId),
+    outboxInsert(env, outboxId, "support_message", "support", ticketId, {
+      ticket_id: ticketId, message, sender_type: "user", status: "in_progress", created_at: now,
+    }, now),
+  ]);
+  await trySyncCrmEvent(env, outboxId);
+  await writeAudit(env, user, "support.message.user", "support", ticketId);
+  return json({ message: "Message sent", id: messageId }, 201);
+}
+
+async function adminPartnershipThreads(request, env) {
+  const admin = await currentPartnershipManager(request, env);
+  const rows = await env.DB.prepare(`
+    SELECT id, user_id, email, cooperation_type, author_name, company_name, subject,
+           preferred_contact, status, crm_sync_status, crm_entity_id, created_at, updated_at
+    FROM partnership_threads ORDER BY updated_at DESC LIMIT 200
+  `).all();
+  return json({ threads: rows.results || [], admin: publicUser(admin, env) });
+}
+
+async function adminAddPartnershipMessage(request, env, threadId) {
+  const admin = await currentPartnershipManager(request, env);
+  const thread = await getPartnershipThreadRecord(env, threadId);
+  if (!thread) throw new ApiException(404, "THREAD_NOT_FOUND", "Partnership thread not found");
+  const data = await readJson(request);
+  const message = cleanText(data.message, 6000, "message");
+  const now = new Date().toISOString();
+  const messageId = crypto.randomUUID();
+  const outboxId = crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare(`
+      INSERT INTO partnership_messages (id, thread_id, sender_type, sender_name, message, is_read, created_at)
+      VALUES (?, ?, 'manager', ?, ?, 0, ?)
+    `).bind(messageId, threadId, admin.email, message, now),
+    env.DB.prepare("UPDATE partnership_threads SET status = 'waiting_user', crm_sync_status = 'pending', updated_at = ? WHERE id = ?").bind(now, threadId),
+    outboxInsert(env, outboxId, "partnership_message", "partnership", threadId, {
+      thread_id: threadId, message, sender_type: "manager", status: "waiting_user", created_at: now,
+    }, now),
+  ]);
+  await trySyncCrmEvent(env, outboxId);
+  await writeAudit(env, admin, "partnership.message.manager", "partnership", threadId);
+  const emailSent = await sendCrmReplyEmail(
+    env,
+    thread.email,
+    `Ответ AI Food: ${thread.subject}`,
+    message,
+  );
+  return json({ message: "Reply sent", id: messageId, email_sent: emailSent }, 201);
+}
+
+async function adminUpdatePartnership(request, env, threadId) {
+  const manager = await currentPartnershipManager(request, env);
+  const data = await readJson(request);
+  const status = enumValue(data.status, ["new", "in_progress", "waiting_user", "closed"], "status");
+  const now = new Date().toISOString();
+  const outboxId = crypto.randomUUID();
+  const result = await env.DB.prepare("UPDATE partnership_threads SET status = ?, crm_sync_status = 'pending', updated_at = ? WHERE id = ?")
+    .bind(status, now, threadId).run();
+  if (!result.meta?.changes) throw new ApiException(404, "THREAD_NOT_FOUND", "Partnership thread not found");
+  await outboxInsert(env, outboxId, "partnership_status", "partnership", threadId, {
+    thread_id: threadId,
+    status,
+    changed_by: manager.email,
+    created_at: now,
+  }, now).run();
+  await trySyncCrmEvent(env, outboxId);
+  await writeAudit(env, manager, "partnership.status", "partnership", threadId, { status });
+  return json({ thread: await getPartnershipThreadRecord(env, threadId) });
+}
+
+async function adminSupportTickets(request, env) {
+  const admin = await currentSupportManager(request, env);
+  const rows = await env.DB.prepare(`
+    SELECT id, user_id, email, subject, category, status, priority, crm_sync_status,
+           crm_entity_id, created_at, updated_at
+    FROM support_tickets ORDER BY updated_at DESC LIMIT 200
+  `).all();
+  return json({ tickets: rows.results || [], admin: publicUser(admin, env) });
+}
+
+async function adminAddSupportMessage(request, env, ticketId) {
+  const admin = await currentSupportManager(request, env);
+  const ticket = await getSupportTicketRecord(env, ticketId);
+  if (!ticket) throw new ApiException(404, "TICKET_NOT_FOUND", "Support ticket not found");
+  const data = await readJson(request);
+  const message = cleanText(data.message, 6000, "message");
+  const now = new Date().toISOString();
+  const messageId = crypto.randomUUID();
+  const outboxId = crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare(`
+      INSERT INTO support_messages (id, ticket_id, sender_type, sender_name, message, is_read, created_at)
+      VALUES (?, ?, 'manager', ?, ?, 0, ?)
+    `).bind(messageId, ticketId, admin.email, message, now),
+    env.DB.prepare("UPDATE support_tickets SET status = 'waiting_user', crm_sync_status = 'pending', updated_at = ? WHERE id = ?").bind(now, ticketId),
+    outboxInsert(env, outboxId, "support_message", "support", ticketId, {
+      ticket_id: ticketId, message, sender_type: "manager", status: "waiting_user", created_at: now,
+    }, now),
+  ]);
+  await trySyncCrmEvent(env, outboxId);
+  await writeAudit(env, admin, "support.message.manager", "support", ticketId);
+  const emailSent = await sendCrmReplyEmail(
+    env,
+    ticket.email,
+    `Ответ поддержки AI Food: ${ticket.subject}`,
+    message,
+  );
+  return json({ message: "Reply sent", id: messageId, email_sent: emailSent }, 201);
+}
+
+async function sendCrmReplyEmail(env, recipient, subject, message) {
+  try {
+    await sendEmail(env, recipient, subject, message, `<p>${escapeHtmlForEmail(message)}</p>`);
+    return true;
+  } catch (error) {
+    console.error("CRM reply email failed", {
+      recipient,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+}
+
+async function adminUpdateSupportTicket(request, env, ticketId) {
+  const manager = await currentSupportManager(request, env);
+  const data = await readJson(request);
+  const status = enumValue(data.status, ["new", "in_progress", "waiting_user", "resolved", "closed"], "status");
+  const priority = enumValue(data.priority || "normal", ["low", "normal", "high", "urgent"], "priority");
+  const now = new Date().toISOString();
+  const outboxId = crypto.randomUUID();
+  const result = await env.DB.prepare("UPDATE support_tickets SET status = ?, priority = ?, crm_sync_status = 'pending', updated_at = ? WHERE id = ?")
+    .bind(status, priority, now, ticketId).run();
+  if (!result.meta?.changes) throw new ApiException(404, "TICKET_NOT_FOUND", "Support ticket not found");
+  await outboxInsert(env, outboxId, "support_status", "support", ticketId, {
+    ticket_id: ticketId,
+    status,
+    priority,
+    changed_by: manager.email,
+    created_at: now,
+  }, now).run();
+  await trySyncCrmEvent(env, outboxId);
+  await writeAudit(env, manager, "support.status", "support", ticketId, { status, priority });
+  return json({ ticket: await getSupportTicketRecord(env, ticketId) });
+}
+
+async function retryFailedCrmEvents(request, env) {
+  const integrator = await currentIntegrator(request, env);
+  await writeAudit(env, integrator, "crm.retry", "crm", null);
+  return json(await retryDueCrmEvents(env));
+}
+
+async function adminCrmOutbox(request, env) {
+  const integrator = await currentIntegrator(request, env);
+  const rows = await env.DB.prepare(`
+    SELECT id, event_type, entity_type, entity_id, status, attempts, next_retry_at,
+           last_error, created_at, updated_at
+    FROM crm_outbox
+    ORDER BY created_at DESC
+    LIMIT 200
+  `).all();
+  return json({ events: rows.results || [], staff: publicUser(integrator, env) });
+}
+
+async function retryDueCrmEvents(env) {
+  if (!stringEnv(env, "BITRIX_WEBHOOK_URL", "")) return { checked: 0, synced: 0 };
+  const rows = await env.DB.prepare(`
+    SELECT id FROM crm_outbox
+    WHERE status IN ('pending', 'failed') AND (next_retry_at IS NULL OR next_retry_at <= ?)
+    ORDER BY created_at ASC LIMIT 50
+  `).bind(new Date().toISOString()).all();
+  let synced = 0;
+  for (const row of rows.results || []) {
+    if (await trySyncCrmEvent(env, row.id)) synced += 1;
+  }
+  return { checked: rows.results?.length || 0, synced };
+}
+
+async function syncCurrentUserToCrm(request, env) {
+  const user = await currentActiveUser(request, env);
+  const data = await maybeReadJson(request) || {};
+  const source = enumValue(data.source || "website", ["website", "web-chat", "android"], "source");
+  await queueUserContactSync(env, user, source);
+  return json({ message: "CRM synchronization queued" }, 202);
+}
+
+async function queueUserContactSync(env, user, source) {
+  const now = new Date().toISOString();
+  const existing = await env.DB.prepare("SELECT crm_entity_id, source FROM crm_user_contacts WHERE user_id = ?").bind(user.id).first();
+  const resolvedSource = source || existing?.source || "website";
+  const payload = {
+    user_id: user.id,
+    email: user.email,
+    role: userRole(user, env),
+    source: resolvedSource,
+    is_blocked: truthy(user.is_blocked),
+    created_at: user.created_at,
+    crm_entity_id: existing?.crm_entity_id || null,
+  };
+  const outboxId = crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare(`
+      INSERT INTO crm_user_contacts (user_id, email, source, is_blocked, crm_entity_id, sync_status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        email = excluded.email, source = excluded.source, is_blocked = excluded.is_blocked,
+        sync_status = 'pending', updated_at = excluded.updated_at
+    `).bind(user.id, user.email, resolvedSource, truthy(user.is_blocked) ? 1 : 0, existing?.crm_entity_id || null, user.created_at, now),
+    outboxInsert(env, outboxId, existing?.crm_entity_id ? "user_updated" : "user_created", "user", user.id, payload, now),
+  ]);
+  await trySyncCrmEvent(env, outboxId);
+}
+
+function outboxInsert(env, id, eventType, entityType, entityId, payload, now) {
+  return env.DB.prepare(`
+    INSERT INTO crm_outbox (id, event_type, entity_type, entity_id, payload_json, status, attempts, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, 'pending', 0, ?, ?)
+  `).bind(id, eventType, entityType, entityId, JSON.stringify(payload), now, now);
+}
+
+async function trySyncCrmEvent(env, outboxId) {
+  const webhook = stringEnv(env, "BITRIX_WEBHOOK_URL", "").replace(/\/$/, "");
+  if (!webhook) return false;
+  const row = await env.DB.prepare("SELECT * FROM crm_outbox WHERE id = ?").bind(outboxId).first();
+  if (!row || row.status === "synced") return true;
+  const payload = JSON.parse(row.payload_json);
+  const entityTypeId = crmEntityTypeId(env, row.entity_type);
+  if (!entityTypeId) return false;
+
+  try {
+    const crmEntityId = payload.crm_entity_id || await currentCrmEntityId(env, row.entity_type, row.entity_id);
+    let remoteId = String(crmEntityId || "");
+
+    if (row.event_type.endsWith("_message")) {
+      if (!crmEntityId) throw new Error("CRM entity is not created yet");
+      const statusFields = bitrixStatusFields(env, row.entity_type, payload);
+      if (Object.keys(statusFields).length) {
+        await bitrixRequest(env, webhook, "crm.item.update.json", {
+          entityTypeId,
+          id: crmEntityId,
+          fields: statusFields,
+        });
+      }
+      await bitrixRequest(env, webhook, "crm.timeline.comment.add.json", {
+        fields: {
+          ENTITY_ID: crmEntityId,
+          ENTITY_TYPE: stringEnv(env, `BITRIX_${row.entity_type.toUpperCase()}_OWNER_TYPE`, `dynamic_${entityTypeId}`),
+          COMMENT: bitrixTimelineComment(payload),
+        },
+      });
+    } else if (row.event_type.endsWith("_status")) {
+      if (!crmEntityId) throw new Error("CRM entity is not created yet");
+      const fields = bitrixStatusFields(env, row.entity_type, payload);
+      if (Object.keys(fields).length) {
+        await bitrixRequest(env, webhook, "crm.item.update.json", {
+          entityTypeId,
+          id: crmEntityId,
+          fields,
+        });
+      }
+      await bitrixRequest(env, webhook, "crm.timeline.comment.add.json", {
+        fields: {
+          ENTITY_ID: crmEntityId,
+          ENTITY_TYPE: stringEnv(env, `BITRIX_${row.entity_type.toUpperCase()}_OWNER_TYPE`, `dynamic_${entityTypeId}`),
+          COMMENT: bitrixStatusComment(row.entity_type, payload),
+        },
+      });
+    } else {
+      const fields = bitrixFields(env, row.entity_type, payload);
+      const result = await bitrixRequest(
+        env,
+        webhook,
+        crmEntityId ? "crm.item.update.json" : "crm.item.add.json",
+        crmEntityId
+          ? { entityTypeId, id: crmEntityId, fields }
+          : { entityTypeId, fields },
+      );
+      remoteId = String(result.result?.item?.id || result.result?.id || crmEntityId || "");
+    }
+
+    await markCrmSynced(env, row.entity_type, row.entity_id, remoteId);
+    await env.DB.prepare("UPDATE crm_outbox SET status = 'synced', attempts = attempts + 1, last_error = NULL, updated_at = ? WHERE id = ?")
+      .bind(new Date().toISOString(), outboxId).run();
+    return true;
+  } catch (error) {
+    const attempts = Number(row.attempts || 0) + 1;
+    const retryAt = new Date(Date.now() + Math.min(3600, 30 * (2 ** Math.min(attempts, 7))) * 1000).toISOString();
+    await env.DB.prepare(`
+      UPDATE crm_outbox SET status = 'failed', attempts = ?, next_retry_at = ?, last_error = ?, updated_at = ? WHERE id = ?
+    `).bind(attempts, retryAt, String(error?.message || error).slice(0, 1000), new Date().toISOString(), outboxId).run();
+    await markCrmFailed(env, row.entity_type, row.entity_id);
+    await writeAudit(env, null, "crm.sync.failed", row.entity_type, row.entity_id, {
+      event_type: row.event_type,
+      error: String(error?.message || error).slice(0, 500),
+    });
+    console.error("CRM sync failed", row.event_type, row.entity_id, error?.message || error);
+    await notifyTelegram(env, `AI Food CRM error\n${row.event_type} ${row.entity_id}\n${String(error?.message || error).slice(0, 500)}`);
+    return false;
+  }
+}
+
+async function bitrixRequest(env, webhook, method, body) {
+  const response = await fetch(`${webhook}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(intEnv(env, "BITRIX_TIMEOUT_MS", 12000)),
   });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.error) {
+    throw new Error(result.error_description || result.error || `HTTP ${response.status}`);
+  }
+  return result;
+}
+
+function crmEntityTypeId(env, entityType) {
+  if (entityType === "partnership") return stringEnv(env, "BITRIX_PARTNERSHIP_ENTITY_TYPE_ID", "");
+  if (entityType === "support") return stringEnv(env, "BITRIX_SUPPORT_ENTITY_TYPE_ID", "");
+  if (entityType === "user") return stringEnv(env, "BITRIX_USER_ENTITY_TYPE_ID", "");
+  return "";
+}
+
+function bitrixFields(env, entityType, payload) {
+  if (entityType === "partnership") {
+    const fields = {
+      title: payload.subject || `Partnership ${payload.thread_id}`,
+      originatorId: "AI_FOOD",
+      originId: payload.thread_id || "",
+    };
+    addResponsible(env, fields, "PARTNERSHIP");
+    addBitrixField(
+      env,
+      fields,
+      "BITRIX_PARTNERSHIP_FIELD_COOPERATION_TYPE",
+      bitrixEnumValue(env, "partnership", "cooperation_type", payload.cooperation_type),
+    );
+    addBitrixField(env, fields, "BITRIX_PARTNERSHIP_FIELD_EMAIL", payload.email);
+    addBitrixField(env, fields, "BITRIX_PARTNERSHIP_FIELD_AUTHOR_NAME", payload.author_name);
+    addBitrixField(env, fields, "BITRIX_PARTNERSHIP_FIELD_COMPANY_NAME", payload.company_name);
+    addBitrixField(env, fields, "BITRIX_PARTNERSHIP_FIELD_SUBJECT", payload.subject);
+    addBitrixField(env, fields, "BITRIX_PARTNERSHIP_FIELD_PROPOSAL_MESSAGE", payload.proposal_message);
+    addBitrixField(
+      env,
+      fields,
+      "BITRIX_PARTNERSHIP_FIELD_PREFERRED_CONTACT",
+      bitrixEnumValue(env, "partnership", "preferred_contact", payload.preferred_contact),
+    );
+    addBitrixField(env, fields, "BITRIX_PARTNERSHIP_FIELD_USER_ID", payload.user_id);
+    addBitrixField(env, fields, "BITRIX_PARTNERSHIP_FIELD_THREAD_ID", payload.thread_id);
+    addBitrixField(env, fields, "BITRIX_PARTNERSHIP_FIELD_STATUS", bitrixEnumValue(env, "partnership", "status", payload.status));
+    addBitrixField(env, fields, "BITRIX_PARTNERSHIP_FIELD_SOURCE", bitrixEnumValue(env, "partnership", "source", payload.source));
+    addBitrixField(env, fields, "BITRIX_PARTNERSHIP_FIELD_CREATED_AT", payload.created_at);
+    return fields;
+  }
+  if (entityType === "support") {
+    const fields = {
+      title: payload.subject || `Support ${payload.ticket_id}`,
+      originatorId: "AI_FOOD",
+      originId: payload.ticket_id || "",
+    };
+    addResponsible(env, fields, "SUPPORT");
+    addBitrixField(env, fields, "BITRIX_SUPPORT_FIELD_EMAIL", payload.email);
+    addBitrixField(env, fields, "BITRIX_SUPPORT_FIELD_USER_ID", payload.user_id);
+    addBitrixField(env, fields, "BITRIX_SUPPORT_FIELD_SUBJECT", payload.subject);
+    addBitrixField(env, fields, "BITRIX_SUPPORT_FIELD_MESSAGE", payload.message);
+    addBitrixField(env, fields, "BITRIX_SUPPORT_FIELD_CATEGORY", bitrixEnumValue(env, "support", "category", payload.category));
+    addBitrixField(env, fields, "BITRIX_SUPPORT_FIELD_STATUS", bitrixEnumValue(env, "support", "status", payload.status));
+    addBitrixField(env, fields, "BITRIX_SUPPORT_FIELD_PRIORITY", bitrixEnumValue(env, "support", "priority", payload.priority));
+    addBitrixField(env, fields, "BITRIX_SUPPORT_FIELD_TICKET_ID", payload.ticket_id);
+    addBitrixField(
+      env,
+      fields,
+      "BITRIX_SUPPORT_FIELD_SOURCE",
+      bitrixEnumValue(env, "support", "source", payload.source || "profile_support"),
+    );
+    addBitrixField(env, fields, "BITRIX_SUPPORT_FIELD_CREATED_AT", payload.created_at);
+    return fields;
+  }
+  const fields = {
+    title: payload.email,
+    originatorId: "AI_FOOD",
+    originId: payload.user_id || "",
+  };
+  addResponsible(env, fields, "USER");
+  addBitrixField(env, fields, "BITRIX_USER_FIELD_USER_ID", payload.user_id);
+  addBitrixField(env, fields, "BITRIX_USER_FIELD_EMAIL", payload.email);
+  addBitrixField(env, fields, "BITRIX_USER_FIELD_ROLE", payload.role);
+  addBitrixField(env, fields, "BITRIX_USER_FIELD_SOURCE", bitrixEnumValue(env, "user", "source", payload.source || "website"));
+  addBitrixField(env, fields, "BITRIX_USER_FIELD_IS_BLOCKED", payload.is_blocked ? "Y" : "N");
+  addBitrixField(env, fields, "BITRIX_USER_FIELD_CREATED_AT", payload.created_at);
+  return fields;
+}
+
+function bitrixStatusFields(env, entityType, payload) {
+  const fields = {};
+  if (entityType === "partnership") {
+    addBitrixField(
+      env,
+      fields,
+      "BITRIX_PARTNERSHIP_FIELD_STATUS",
+      bitrixEnumValue(env, "partnership", "status", payload.status),
+    );
+  }
+  if (entityType === "support") {
+    addBitrixField(env, fields, "BITRIX_SUPPORT_FIELD_STATUS", bitrixEnumValue(env, "support", "status", payload.status));
+    addBitrixField(env, fields, "BITRIX_SUPPORT_FIELD_PRIORITY", bitrixEnumValue(env, "support", "priority", payload.priority));
+  }
+  return fields;
+}
+
+function addResponsible(env, fields, prefix) {
+  const value = Number(stringEnv(env, `BITRIX_${prefix}_RESPONSIBLE_ID`, ""));
+  if (Number.isInteger(value) && value > 0) fields.assignedById = value;
+}
+
+function addBitrixField(env, fields, envName, value) {
+  const fieldName = stringEnv(env, envName, "").trim();
+  if (!fieldName || value == null || value === "") return;
+  fields[fieldName] = value;
+}
+
+function bitrixEnumValue(env, entityType, fieldName, value) {
+  if (value == null || value === "") return value;
+  try {
+    const mapping = JSON.parse(stringEnv(env, "BITRIX_ENUM_MAP_JSON", "{}"));
+    return mapping[`${entityType}.${fieldName}.${value}`] ?? value;
+  } catch {
+    return value;
+  }
+}
+
+function bitrixTimelineComment(payload) {
+  const sender = payload.sender_type === "manager" ? "Представитель AI Food" : "Пользователь";
+  return `${sender}: ${String(payload.message || "").slice(0, 6000)}`;
+}
+
+function bitrixStatusComment(entityType, payload) {
+  const label = entityType === "support" ? "Обращение поддержки" : "Заявка на сотрудничество";
+  const priority = payload.priority ? `, приоритет: ${payload.priority}` : "";
+  return `${label}: статус изменен на ${payload.status}${priority}.`;
+}
+
+async function currentCrmEntityId(env, entityType, entityId) {
+  if (entityType === "partnership") {
+    return (await env.DB.prepare("SELECT crm_entity_id FROM partnership_threads WHERE id = ?").bind(entityId).first())?.crm_entity_id || "";
+  }
+  if (entityType === "support") {
+    return (await env.DB.prepare("SELECT crm_entity_id FROM support_tickets WHERE id = ?").bind(entityId).first())?.crm_entity_id || "";
+  }
+  if (entityType === "user") {
+    return (await env.DB.prepare("SELECT crm_entity_id FROM crm_user_contacts WHERE user_id = ?").bind(entityId).first())?.crm_entity_id || "";
+  }
+  return "";
+}
+
+async function markCrmSynced(env, entityType, entityId, remoteId) {
+  const now = new Date().toISOString();
+  if (entityType === "partnership") {
+    await env.DB.prepare("UPDATE partnership_threads SET crm_entity_id = ?, crm_sync_status = 'synced', updated_at = ? WHERE id = ?")
+      .bind(remoteId || null, now, entityId).run();
+  } else if (entityType === "support") {
+    await env.DB.prepare("UPDATE support_tickets SET crm_entity_id = ?, crm_sync_status = 'synced', updated_at = ? WHERE id = ?")
+      .bind(remoteId || null, now, entityId).run();
+  } else if (entityType === "user") {
+    await env.DB.prepare("UPDATE crm_user_contacts SET crm_entity_id = ?, sync_status = 'synced', last_error = NULL, updated_at = ? WHERE user_id = ?")
+      .bind(remoteId || null, now, entityId).run();
+  }
+}
+
+async function markCrmFailed(env, entityType, entityId) {
+  if (entityType === "partnership") {
+    await env.DB.prepare("UPDATE partnership_threads SET crm_sync_status = 'failed' WHERE id = ?").bind(entityId).run();
+  } else if (entityType === "support") {
+    await env.DB.prepare("UPDATE support_tickets SET crm_sync_status = 'failed' WHERE id = ?").bind(entityId).run();
+  } else if (entityType === "user") {
+    await env.DB.prepare("UPDATE crm_user_contacts SET sync_status = 'failed' WHERE user_id = ?").bind(entityId).run();
+  }
+}
+
+async function requirePartnershipAccess(request, env, threadId) {
+  const thread = await getPartnershipThreadRecord(env, threadId);
+  if (!thread) throw new ApiException(404, "THREAD_NOT_FOUND", "Partnership thread not found");
+  const user = await optionalActiveUser(request, env);
+  if (user && (thread.user_id === user.id || staffPermissions(user, env).manage_partnerships)) return thread;
+  const guestToken = String(request.headers.get("x-thread-token") || "");
+  if (guestToken && thread.guest_token_hash && timingSafeEqual(await sha256Hex(guestToken), thread.guest_token_hash)) return thread;
+  throw new ApiException(403, "FORBIDDEN", "Access denied");
+}
+
+async function optionalActiveUser(request, env) {
+  if (!accessTokenFromRequest(request, env)) return null;
+  return currentActiveUser(request, env);
+}
+
+async function getPartnershipThreadRecord(env, id) {
+  return env.DB.prepare("SELECT * FROM partnership_threads WHERE id = ?").bind(id).first();
+}
+
+async function getSupportTicketRecord(env, id) {
+  return env.DB.prepare("SELECT * FROM support_tickets WHERE id = ?").bind(id).first();
+}
+
+function publicPartnershipThread(thread) {
+  const copy = { ...thread };
+  delete copy.guest_token_hash;
+  return copy;
+}
+
+async function sendCrmConfirmationEmail(env, recipient, subject, message) {
+  try {
+    await sendEmail(env, recipient, subject, message, `<p>${escapeHtmlForEmail(message)}</p>`);
+    return true;
+  } catch (error) {
+    console.error("CRM confirmation email failed", recipient, error?.message || error);
+    return false;
+  }
+}
+
+async function notifyTeam(env, subject, text, additionalEmailEnv = "") {
+  const recipients = new Set([
+    ...roleEmails(env, "ADMIN_EMAILS"),
+    ...(additionalEmailEnv ? roleEmails(env, additionalEmailEnv) : []),
+  ]);
+  for (const email of recipients) {
+    try {
+      await sendEmail(env, email, subject, text, `<p>${escapeHtmlForEmail(text).replace(/\n/g, "<br>")}</p>`);
+    } catch (error) {
+      console.error("Admin notification failed", email, error?.message || error);
+    }
+  }
+  await notifyTelegram(env, `${subject}\n${text}`);
+}
+
+async function notifyTelegram(env, text) {
+  const token = stringEnv(env, "TELEGRAM_BOT_TOKEN", "");
+  const chatIds = csvEnv(env, "TELEGRAM_CHAT_IDS");
+  if (!token || chatIds.length === 0) return false;
+  let sent = false;
+  for (const chatId of chatIds) {
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: String(text || "").slice(0, 3900),
+          disable_web_page_preview: true,
+        }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      sent = true;
+    } catch (error) {
+      console.error("Telegram notification failed", chatId, error?.message || error);
+    }
+  }
+  return sent;
+}
+
+async function writeAudit(env, actor, action, entityType, entityId, metadata = {}) {
+  if (!env.DB) return;
+  try {
+    await env.DB.prepare(`
+      INSERT INTO audit_logs (id, actor_user_id, actor_email, action, entity_type, entity_id, metadata_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      crypto.randomUUID(),
+      actor?.id || null,
+      actor?.email || null,
+      String(action || "").slice(0, 120),
+      String(entityType || "").slice(0, 80),
+      entityId || null,
+      JSON.stringify(metadata || {}).slice(0, 8000),
+      new Date().toISOString(),
+    ).run();
+  } catch (error) {
+    console.error("Audit log write failed", error?.message || error);
+  }
+}
+
+function buildAiFoodInstructions(profile) {
+  return [
+    "Ты AI Food, русскоязычный помощник по питанию.",
+    "Отвечай конкретно, доброжелательно и без выдуманных медицинских диагнозов.",
+    "При риске аллергии явно предупреждай пользователя. Не предлагай исключенные продукты.",
+    "Не выдавай ответ за консультацию врача; при опасных симптомах советуй обратиться к специалисту.",
+    `Профиль пользователя: ${JSON.stringify(profile)}.`,
+  ].join("\n");
+}
+
+function extractOpenAiText(body) {
+  if (typeof body.output_text === "string") return body.output_text.trim();
+  return (body.output || [])
+    .flatMap((item) => item.content || [])
+    .filter((item) => item.type === "output_text" && typeof item.text === "string")
+    .map((item) => item.text)
+    .join("\n")
+    .trim();
 }
 
 async function adminUsers(request, env) {
@@ -475,6 +1424,43 @@ async function adminSetBlocked(request, env, userId) {
       .bind(now, now, target.id),
   ]);
   const fresh = await getUserById(env, target.id);
+  await queueUserContactSync(env, fresh, "");
+  await writeAudit(env, admin, blocked ? "user.blocked" : "user.unblocked", "user", target.id, {
+    email: target.email,
+  });
+  return json(publicUser(fresh, env));
+}
+
+async function adminSetRole(request, env, userId) {
+  const admin = await currentAdminUser(request, env);
+  const data = await readJson(request);
+  const target = await getUserByIdOrEmail(env, userId);
+  if (!target) throw new ApiException(404, "USER_NOT_FOUND", "User not found");
+  if (isAdminEmail(env, target.email)) {
+    throw new ApiException(400, "PROTECTED_ADMIN_ROLE", "Configured administrator role cannot be changed");
+  }
+
+  const role = enumValue(
+    data.role,
+    ["user", "crm_manager", "support_manager", "developer"],
+    "role",
+  );
+  const previousRole = userRole(target, env);
+  const now = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET role = ?, updated_at = ? WHERE id = ?")
+      .bind(role, now, target.id),
+    env.DB.prepare("UPDATE sessions SET revoked_at = ?, updated_at = ? WHERE user_id = ? AND revoked_at IS NULL")
+      .bind(now, now, target.id),
+  ]);
+
+  const fresh = await getUserById(env, target.id);
+  await queueUserContactSync(env, fresh, "");
+  await writeAudit(env, admin, "user.role_changed", "user", target.id, {
+    email: target.email,
+    previous_role: previousRole,
+    role,
+  });
   return json(publicUser(fresh, env));
 }
 
@@ -488,6 +1474,7 @@ async function adminDeleteUser(request, env, userId) {
     env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(target.id),
     env.DB.prepare("DELETE FROM users WHERE id = ?").bind(target.id),
   ]);
+  await writeAudit(env, admin, "user.deleted", "user", target.id, { email: target.email });
   return json({ message: "User deleted" });
 }
 
@@ -549,6 +1536,30 @@ async function issueTokens(request, env, user, existingSessionId = null) {
 async function currentAdminUser(request, env) {
   const user = await currentActiveUser(request, env);
   if (userRole(user, env) !== "admin") throw new ApiException(403, "ADMIN_REQUIRED", "Admin access required");
+  return user;
+}
+
+async function currentPartnershipManager(request, env) {
+  const user = await currentActiveUser(request, env);
+  if (!staffPermissions(user, env).manage_partnerships) {
+    throw new ApiException(403, "CRM_MANAGER_REQUIRED", "CRM manager access required");
+  }
+  return user;
+}
+
+async function currentSupportManager(request, env) {
+  const user = await currentActiveUser(request, env);
+  if (!staffPermissions(user, env).manage_support) {
+    throw new ApiException(403, "SUPPORT_MANAGER_REQUIRED", "Support manager access required");
+  }
+  return user;
+}
+
+async function currentIntegrator(request, env) {
+  const user = await currentActiveUser(request, env);
+  if (!staffPermissions(user, env).manage_integration) {
+    throw new ApiException(403, "INTEGRATOR_REQUIRED", "Integration access required");
+  }
   return user;
 }
 
@@ -662,12 +1673,14 @@ async function getUserByIdOrEmail(env, value) {
 }
 
 function publicUser(user, env) {
+  const role = userRole(user, env);
   return {
     id: String(user.id),
     email: user.email,
     is_email_verified: truthy(user.is_email_verified),
-    role: userRole(user, env),
-    is_admin: userRole(user, env) === "admin",
+    role,
+    is_admin: role === "admin",
+    permissions: staffPermissions(user, env),
     is_blocked: truthy(user.is_blocked),
     blocked_at: user.blocked_at || null,
     created_at: user.created_at || null,
@@ -687,11 +1700,31 @@ function parseProfile(value) {
 
 function userRole(user, env) {
   if (isAdminEmail(env, user.email)) return "admin";
-  return String(user.role || "user").toLowerCase() === "admin" ? "admin" : "user";
+  const email = normalizeEmail(user.email);
+  if (roleEmails(env, "CRM_MANAGER_EMAILS").map(normalizeEmail).includes(email)) return "crm_manager";
+  if (roleEmails(env, "SUPPORT_MANAGER_EMAILS").map(normalizeEmail).includes(email)) return "support_manager";
+  if (roleEmails(env, "DEVELOPER_EMAILS").map(normalizeEmail).includes(email)) return "developer";
+  const stored = String(user.role || "user").trim().toLowerCase();
+  return ["crm_manager", "support_manager", "developer"].includes(stored) ? stored : "user";
 }
 
 function isAdminEmail(env, email) {
-  return csvEnv(env, "ADMIN_EMAILS").map(normalizeEmail).includes(normalizeEmail(email));
+  return roleEmails(env, "ADMIN_EMAILS").map(normalizeEmail).includes(normalizeEmail(email));
+}
+
+function roleEmails(env, key) {
+  const secretValues = csvEnv(env, `${key}_SECRET`);
+  return secretValues.length ? secretValues : csvEnv(env, key);
+}
+
+function staffPermissions(user, env) {
+  const role = userRole(user, env);
+  return {
+    manage_users: role === "admin",
+    manage_partnerships: role === "admin" || role === "crm_manager",
+    manage_support: role === "admin" || role === "support_manager",
+    manage_integration: role === "admin" || role === "developer",
+  };
 }
 
 async function hashPassword(password, salt = randomBase64Url(16), iterations = 210000) {
@@ -915,7 +1948,7 @@ function corsHeaders(request, env) {
   const headers = {
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization,X-AI-Food-Client",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,X-AI-Food-Client,X-Thread-Token",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
@@ -935,6 +1968,37 @@ function securityHeaders() {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
   };
+}
+
+function rejectHoneypot(data) {
+  if (String(data?.website || "").trim()) {
+    throw new ApiException(400, "SPAM_REJECTED", "Request rejected");
+  }
+}
+
+async function verifyTurnstile(env, request, token, expectedAction) {
+  const secret = stringEnv(env, "TURNSTILE_SECRET_KEY", "");
+  if (!secret) return;
+  const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      secret,
+      response: String(token || ""),
+      remoteip: clientIp(request),
+    }),
+    signal: AbortSignal.timeout(8000),
+  });
+  const result = await response.json().catch(() => ({}));
+  const requestOrigin = request.headers.get("Origin");
+  const expectedHostname = requestOrigin ? new URL(requestOrigin).hostname : "";
+  const actionMatches = !expectedAction || result.action === expectedAction;
+  const hostnameMatches = !expectedHostname || result.hostname === expectedHostname;
+  if (!response.ok || result.success !== true || !actionMatches || !hostnameMatches) {
+    throw new ApiException(400, "TURNSTILE_FAILED", "Anti-spam verification failed", {
+      error_codes: Array.isArray(result["error-codes"]) ? result["error-codes"].slice(0, 5) : [],
+    });
+  }
 }
 
 async function readJson(request) {
@@ -1003,6 +2067,67 @@ function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
+function cleanText(value, maxLength, fieldName) {
+  const text = String(value || "").trim();
+  if (!text) throw new ApiException(400, "VALIDATION_ERROR", `${fieldName} is required`, { field: fieldName });
+  if (text.length > maxLength) {
+    throw new ApiException(400, "VALIDATION_ERROR", `${fieldName} is too long`, { field: fieldName, max_length: maxLength });
+  }
+  return text;
+}
+
+function ensureMinimumLength(value, minLength, fieldName) {
+  if (String(value).length < minLength) {
+    throw new ApiException(400, "VALIDATION_ERROR", `${fieldName} is too short`, {
+      field: fieldName,
+      min_length: minLength,
+    });
+  }
+}
+
+function cleanOptionalText(value, maxLength) {
+  const text = String(value || "").trim();
+  return text.slice(0, maxLength);
+}
+
+function cleanStringList(value, maxItems, maxItemLength) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, maxItems)
+    .map((item) => cleanOptionalText(item, maxItemLength))
+    .filter(Boolean);
+}
+
+function boundedNumber(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, number));
+}
+
+function enumValue(value, allowed, fieldName) {
+  const normalized = String(value || "").trim();
+  if (!allowed.includes(normalized)) {
+    throw new ApiException(400, "VALIDATION_ERROR", `${fieldName} has an invalid value`, {
+      field: fieldName,
+      allowed,
+    });
+  }
+  return normalized;
+}
+
+function isEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "")) && String(value).length <= 254;
+}
+
+function escapeHtmlForEmail(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function boolEnv(env, key, fallback) {
   const value = env[key];
   if (value == null || value === "") return fallback;
@@ -1039,6 +2164,14 @@ function clientIp(request) {
   return request.headers.get("cf-connecting-ip")
     || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     || "unknown";
+}
+
+function clientSource(request) {
+  const client = String(request.headers.get("x-ai-food-client") || "").toLowerCase();
+  if (client === "android" || client === "mobile" || client === "ios") return "android";
+  const origin = String(request.headers.get("origin") || "").toLowerCase();
+  if (origin.includes("cremenality.online")) return "web-chat";
+  return "website";
 }
 
 function generateNumericCode(length) {

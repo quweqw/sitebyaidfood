@@ -6,121 +6,87 @@ Production repository for the AI Food web stack.
 
 ```text
 .
-├─ /                 Main public website for cremenality.ru
-├─ cremenality-online/     Browser chat app for cremenality.online
-└─ cloudflare-auth-worker/ Auth API Worker for api.cremenality.ru
+├─ /                       cremenality.ru public website
+├─ cremenality-online/     cremenality.online browser application
+└─ cloudflare-auth-worker/ api.cremenality.ru backend
 ```
 
-## Architecture
+## Production Architecture
 
 ```text
-cremenality.ru
-  Static website on Cloudflare Pages.
-  Handles landing pages, account UI, admin UI and links to the chat app.
-
-cremenality.online
-  Static browser chat app on Cloudflare Pages.
-  Requires an authenticated account, then shows RadminVPN connection details.
-
+cremenality.ru and Android
+            |
+            v
 api.cremenality.ru
-  Cloudflare Worker + D1.
-  Handles registration, login, email verification, password reset, sessions,
-  admin users and RadminVPN connection details.
-
-26.192.1.120:8000
-  Local AI Food backend on your PC through RadminVPN.
-  Handles chat, image recognition, profile sync and meal planner.
+Cloudflare Worker
+  |- authentication and sessions
+  |- deterministic calorie calculation
+  |- profile and meal-plan API
+  |- OpenAI text chat and image analysis
+  |- CRM and support API
+            |
+      +-----+------+
+      |            |
+      v            v
+Cloudflare D1   OpenAI Responses API
 ```
 
-## RadminVPN Mode
+The production site and Android app do not require a local PC, VPN, tunnel, Ollama or FastAPI process. The OpenAI API key is stored only as a Cloudflare Worker secret and is never sent to a browser or mobile device.
 
-The browser chat offers only RadminVPN in the connection flow.
+The legacy `backend/` directory outside this repository can still be used for local experiments, but it is not part of the production request path.
 
-Current public connection values are configured in:
-
-```text
-cloudflare-auth-worker/wrangler.toml
-```
-
-```toml
-CONNECTION_DEFAULT_PROVIDER = "radmin"
-CONNECTION_RADMIN_IP = "26.192.1.120"
-CONNECTION_RADMIN_LOGIN = "aifoodwebapp"
-CONNECTION_RADMIN_CORE_API_URL = "http://26.192.1.120:8000"
-```
-
-The RadminVPN password must be stored as a Worker secret, not in git:
+## Required Worker Secrets
 
 ```powershell
 cd cloudflare-auth-worker
-& "C:\Program Files\nodejs\node.exe" ".\node_modules\wrangler\bin\wrangler.js" secret put CONNECTION_RADMIN_PASSWORD
+& "C:\Program Files\nodejs\npx.cmd" wrangler secret put SECRET_KEY
+& "C:\Program Files\nodejs\npx.cmd" wrangler secret put RESEND_API_KEY
+& "C:\Program Files\nodejs\npx.cmd" wrangler secret put OPENAI_API_KEY
 ```
 
-Important browser limitation: `cremenality.online` is HTTPS, while `http://26.192.1.120:8000` is HTTP. Some browsers may block this as mixed content. If that happens, keep RadminVPN for private network access, but put HTTPS in front of the backend.
+Optional CRM secret:
 
-## Local Backend Requirements
-
-The local backend must be reachable from another RadminVPN device:
-
-```text
-host: 0.0.0.0
-port: 8000
+```powershell
+& "C:\Program Files\nodejs\npx.cmd" wrangler secret put BITRIX_WEBHOOK_URL
 ```
 
-Windows Firewall must allow inbound TCP `8000` on the RadminVPN network.
+Full Bitrix24 setup: [docs/bitrix24.md](docs/bitrix24.md).
 
-Recommended local `backend/.env` values:
-
-```text
-SECRET_KEY=[same SECRET_KEY as Cloudflare Worker]
-ALLOW_HOSTED_AUTH_TOKENS=true
-ACCESS_COOKIE_NAME=__Secure-aifood_access
-CORS_ALLOWED_ORIGINS=https://cremenality.ru,https://www.cremenality.ru,https://cremenality.online,https://www.cremenality.online
-TRUSTED_HOSTS=localhost,127.0.0.1,26.192.1.120
-```
+Never put these values into `wrangler.toml`, frontend files, screenshots or git.
 
 ## Checks
-
-Main website:
 
 ```powershell
 cd sitebyaidfood
 cmd /c check.cmd
-```
 
-Browser chat:
-
-```powershell
-cd sitebyaidfood\cremenality-online
+cd cremenality-online
 & "C:\Program Files\nodejs\node.exe" .\scripts\smoke-check.mjs
-```
 
-Auth Worker:
-
-```powershell
-cd sitebyaidfood\cloudflare-auth-worker
-& "C:\Program Files\nodejs\node.exe" --check .\src\index.js
+cd ..\cloudflare-auth-worker
+& "C:\Program Files\nodejs\npm.cmd" run check
 ```
 
 ## Deploy
+
+Apply D1 migrations before deploying the Worker:
+
+```powershell
+cd cloudflare-auth-worker
+& "C:\Program Files\nodejs\npx.cmd" wrangler d1 migrations apply aifood-auth --remote
+& "C:\Program Files\nodejs\npx.cmd" wrangler deploy
+```
 
 Main website:
 
 ```powershell
 cd sitebyaidfood
-& "C:\Program Files\nodejs\node.exe" ".\cloudflare-auth-worker\node_modules\wrangler\bin\wrangler.js" pages deploy . --project-name cremenality
+& "C:\Program Files\nodejs\npx.cmd" wrangler pages deploy . --project-name cremenality
 ```
 
-Browser chat:
+Browser application:
 
 ```powershell
 cd sitebyaidfood\cremenality-online
-& "C:\Program Files\nodejs\node.exe" "..\cloudflare-auth-worker\node_modules\wrangler\bin\wrangler.js" pages deploy . --project-name cremenality-online
-```
-
-Auth Worker:
-
-```powershell
-cd sitebyaidfood\cloudflare-auth-worker
-& "C:\Program Files\nodejs\node.exe" ".\node_modules\wrangler\bin\wrangler.js" deploy
+& "C:\Program Files\nodejs\npx.cmd" wrangler pages deploy . --project-name cremenality-online
 ```

@@ -17,9 +17,11 @@ const requiredFiles = [
   "src/api.js",
   "src/auth.js",
   "src/chat.js",
+  "src/crm.js",
   "src/admin.js",
   "src/router.js",
   "src/session.js",
+  "src/turnstile.js",
   "src/config.js",
   "src/icons.js",
   "src/ui.js",
@@ -46,12 +48,25 @@ const session = await readFile(join(root, "src/session.js"), "utf8");
 const auth = await readFile(join(root, "src/auth.js"), "utf8");
 const router = await readFile(join(root, "src/router.js"), "utf8");
 
+const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]);
+const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
+if (duplicateIds.length) throw new Error(`Duplicate HTML ids: ${[...new Set(duplicateIds)].join(", ")}`);
+
 for (const marker of [
   "id=\"registerForm\"",
   "id=\"verifyForm\"",
   "id=\"loginForm\"",
   "id=\"chatForm\"",
   "id=\"adminUsersBody\"",
+  "id=\"partnershipForm\"",
+  "id=\"supportForm\"",
+  "id=\"adminUserSearch\"",
+  "data-view=\"cooperation\"",
+  "data-view=\"support\"",
+  "data-view=\"requests\"",
+  "data-turnstile-action=\"partnership\"",
+  "data-turnstile-action=\"support\"",
+  "id=\"adminCrmOutbox\"",
   "data-view=\"admin\"",
   "data-admin-only",
   "id=\"androidDownloadLink\"",
@@ -67,8 +82,12 @@ for (const path of [
   "/auth/me",
   "/auth/refresh",
   "/auth/logout",
-  "/chat/message",
+  "/api/ai/chat",
+  "/api/partnership/requests",
+  "/api/support/tickets",
+  "/admin/crm/outbox",
   "/admin/users",
+  "/role",
 ]) {
   if (!api.includes(path)) throw new Error(`Missing API path: ${path}`);
 }

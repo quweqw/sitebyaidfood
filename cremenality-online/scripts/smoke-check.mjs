@@ -34,12 +34,9 @@ const app = await readFile(join(root, "src/app.js"), "utf8");
 
 for (const marker of [
   "id=\"authGate\"",
-  "id=\"connectionGate\"",
   "id=\"appShell\"",
   "id=\"chatForm\"",
   "id=\"settingsForm\"",
-  "id=\"connectionDetails\"",
-  "id=\"openChatButton\"",
   "id=\"plannerForm\"",
   "id=\"photoInput\"",
 ]) {
@@ -50,8 +47,7 @@ for (const endpoint of [
   "/auth/me",
   "/auth/refresh",
   "/auth/logout",
-  "/connection-info",
-  "/chat/message",
+  "/api/ai/chat",
   "/recognition/image",
   "/meal-planner/intent/parse",
   "/meal-planner/generate",
@@ -61,6 +57,12 @@ for (const endpoint of [
 }
 
 if (!headers.includes("Content-Security-Policy")) throw new Error("CSP header is missing");
+if (html.includes("RadminVPN") || app.includes("RadminVPN")) {
+  throw new Error("Legacy VPN connection flow is still present");
+}
+if (!app.includes("return authRequest(path, options)")) {
+  throw new Error("Cloud Core API routing is not enabled");
+}
 if (app.includes("localStorage.setItem(\"access_token") || app.includes("localStorage.setItem('access_token")) {
   throw new Error("Core bearer token must not be persisted in localStorage");
 }

@@ -7,6 +7,7 @@ export const appConfig = {
   chatAppUrl: readConfig("chatAppUrl", "https://cremenality.online/?v=20260610-handoff"),
   androidDownloadUrl: readConfig("androidDownloadUrl", "https://github.com/quweqw/AI-Food/releases"),
   githubUrl: readConfig("githubUrl", "https://github.com/quweqw/AI-Food"),
+  turnstileSiteKey: readConfig("turnstileSiteKey", ""),
   chatPreset: readConfig(
     "chatPreset",
     "Ты - AI Food, помощник по питанию. Отвечай конкретно, учитывай цель, калории, аллергены и исключенные продукты.",
